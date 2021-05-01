@@ -109,10 +109,10 @@ int main(int argc, char* argv[])
     }else
     {
         uint32_t src_device_uid = 2;
-        char* dst_ip_addr = "192.168.1.2";
-        char* host_ip_addr = "192.168.1.30";
-        uint32_t in_udp_port = 50021;
-        uint32_t out_udp_port = 50021;
+        char* dst_ip_addr = "127.0.0.1";
+        char* host_ip_addr = "127.0.0.1";
+        uint32_t in_udp_port = 0;
+        uint32_t out_udp_port = 50020;
         uint32_t socket_timeout = 100;
         uint32_t max_packet_size = 65535;
         uint32_t max_data_size = 20000000;
@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
                 src_device_uid, dst_ip_addr, host_ip_addr, in_udp_port, out_udp_port,
                 socket_timeout, max_packet_size, max_data_size);
 
-        printf("## DEFAULT SETTINGS ##\n\n"
+        printf("\n\n## DEFAULT SETTINGS ##\n\n"
                "src_device_uid\t: %d\n"
                "dst_ip_addr\t: %s\n"
                "host_ip_addr\t: %s\n"

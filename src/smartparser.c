@@ -1630,7 +1630,7 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 
 }
 
-#ifdef _WIN32
+#ifdef _WIN322
 #define CLOCK_REALTIME 0
 
 LARGE_INTEGER getFILETIMEoffset()
@@ -1766,7 +1766,7 @@ smart_msg_t* smart_parser_get_msg(smart_parser_t *parser, int32_t timeout)
                 const int timed_wait_rv = pthread_cond_timedwait(&parser->input_data_cond_var, &parser->input_data_cond_var_mutex, &max_wait);
                 if (timed_wait_rv)
                 {
-                    error_pthread_cond_timedwait(timed_wait_rv);
+//                    error_pthread_cond_timedwait(timed_wait_rv);
                     pthread_mutex_unlock(&parser->input_data_cond_var_mutex);
                     return FALSE;
                 }

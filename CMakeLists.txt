@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.13)
 ## PROJECT
 ## name and version
 ###############################################################################
-project(smart-protocol LANGUAGES C)
+project(RF62X-Protocol LANGUAGES C)
 
 
 
@@ -30,10 +30,10 @@ endif()
 ## project configuration
 ###############################################################################
 # library src
-SET(${PARENT}_SMART_PROTOCOL_LIB            ON CACHE BOOL  "" ${REWRITE_FORCE})
+SET(${PARENT}_RF62X_PROTOCOL_LIB            ON CACHE BOOL  "" ${REWRITE_FORCE})
 
 # Examples
-SET(${PARENT}_SMART_PROTOCOL_EXAMPLES       ON CACHE BOOL  "" ${REWRITE_FORCE})
+SET(${PARENT}_RF62X_PROTOCOL_EXAMPLES       ON CACHE BOOL  "" ${REWRITE_FORCE})
 
 
 
@@ -41,14 +41,14 @@ SET(${PARENT}_SMART_PROTOCOL_EXAMPLES       ON CACHE BOOL  "" ${REWRITE_FORCE})
 ## INCLUDING SUBDIRECTORIES
 ## Adding subdirectories according to the configuration
 ###############################################################################
-if (${PARENT}_SMART_PROTOCOL_LIB)
+if (${PARENT}_RF62X_PROTOCOL_LIB)
     # 3rdparty
     add_subdirectory(3rdparty)
     # library src
     add_subdirectory(src)
 
     # Tests
-    if (${PARENT}_SMART_PROTOCOL_EXAMPLES)
+    if (${PARENT}_RF62X_PROTOCOL_EXAMPLES)
         add_subdirectory(examples)
     endif()
 endif()

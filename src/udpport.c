@@ -59,17 +59,16 @@ uint8_t udp_port_open(udp_port_t *udpport, uint16_t port_number, uint16_t timeou
 //    memset((char *)&udpport->input_addr, 0, sizeof(udpport->input_addr));
     udpport->input_addr.sin_family = AF_INET;
     udpport->input_addr.sin_port = htons(port_number);
-    //udpport->input_addr.sin_addr.s_addr = INADDR_ANY; // For any source IP.
+//    udpport->input_addr.sin_addr.s_addr = INADDR_ANY; // For any source IP.
 
-    // Init output net atributes.
-    //memset((char *)&udpport->output_addr, 0, sizeof(udpport->output_addr));
-    udpport->output_addr.sin_family = AF_INET;
-    udpport->output_addr.sin_port = htons(port_number);
-    //udpport->output_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); // Localhost default.
+//    // Init output net atributes.
+//    memset((char *)&udpport->output_addr, 0, sizeof(udpport->output_addr));
+//    udpport->output_addr.sin_family = AF_INET;
+//    udpport->output_addr.sin_port = htons(port_number);
+//    udpport->output_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); // Localhost default.
 
     // Bing socket if not for tansmission only.
     if (!transmit_only) {
-        // Bing socket if not for tansmission only.
 #if defined(linux) || defined(__linux) || defined(__linux__)
         ret_val = bind(udpport->sock, (struct sockaddr *)&udpport->input_addr, sizeof(udpport->input_addr));
 #else
@@ -159,7 +158,13 @@ int udp_port_read_data(udp_port_t *udpport, uint8_t *buf, uint32_t size, struct 
     if (udpport->port_num == 0)
         return -1;
     // Wait and read data from socket.
-    return recvfrom(udpport->sock, (char*)buf, size, 0, (struct sockaddr *)srcSockaddr, NULL);
+    struct sockaddr_in sender_addr;
+    int sender_addr_size = sizeof (sender_addr);
+    int ret = recvfrom(udpport->sock, (char*)buf, size, 0, (SOCKADDR *) & sender_addr, &sender_addr_size);
+    srcSockaddr->sin_addr = sender_addr.sin_addr;
+    srcSockaddr->sin_family = sender_addr.sin_family;
+    srcSockaddr->sin_port = sender_addr.sin_port;
+    return ret;
 }
 
 int udp_port_send_data(udp_port_t *udpport, uint8_t *buf, uint32_t size)

@@ -15,7 +15,7 @@ project(3rdparty LANGUAGES C)
 ## basic 3rd-party settings before use
 ###############################################################################
 # To inherit the top-level architecture when the project is used as a submodule.
-SET(PARENT ${PARENT}_SMART_PROTOCOL_)
+SET(PARENT ${PARENT}_RF62X_PROTOCOL_)
 # Disable self-overwriting of parameters inside included subdirectories.
 SET(${PARENT}_SUBMODULE_CACHE_OVERWRITE OFF CACHE BOOL "" FORCE)
 
@@ -27,6 +27,19 @@ SET(${PARENT}_SUBMODULE_CACHE_OVERWRITE OFF CACHE BOOL "" FORCE)
 ###############################################################################
 SET(${PARENT}_MPACK_SUBMODULE                           ON CACHE BOOL "" FORCE)
 
+SET(${PARENT}_RF_PLATFORM_UILS                          ON CACHE BOOL "" FORCE)
+if (${PARENT}_RF_PLATFORM_UILS)
+    # platform_methods
+    SET(${PARENT}_PLATFORM_METHODS                      OFF CACHE BOOL "" FORCE)
+    # endian_conv
+    SET(${PARENT}_ENDIAN_CONV                           OFF CACHE BOOL "" FORCE)
+    # custom_vector
+    SET(${PARENT}_CUSTOM_VECTOR                         OFF CACHE BOOL "" FORCE)
+    # custom_string
+    SET(${PARENT}_CUSTOM_STRING                         OFF CACHE BOOL "" FORCE)
+    # pthreads-c
+    SET(${PARENT}_PTHREAD_C                             ON CACHE BOOL "" FORCE)
+endif()
 
 
 ###############################################################################
@@ -39,6 +52,6 @@ endif()
 
 if (MSVC)
     SET(CPTHREADS_BUILD_STATIC ON)
-    add_subdirectory(pthreads-c)
+    add_subdirectory(RF-PlatformUtils)
 endif()
 

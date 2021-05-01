@@ -50,7 +50,7 @@ find_package (Threads)
 target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(${PROJECT_NAME} mpack)
-target_link_libraries(${PROJECT_NAME} smart-protocol)
+target_link_libraries(${PROJECT_NAME} RF62X-Protocol)
 
 if(MINGW)
     target_link_libraries(${PROJECT_NAME} ws2_32)

@@ -43,7 +43,7 @@ typedef struct
 
 char *smart_channel_version()
 {
-    char* version = "1.1.4";
+    char* version = "1.2.0";
     return version;
 }
 
@@ -85,80 +85,19 @@ void *read_thread_func (void *args) {
             }
         }
         pthread_mutex_unlock(&channel->smart_parser.output_msg_buff_mutex);
-#ifndef TEST_SENDER
-//------Original-----------------------------------------------------------------------------------------------
+
         // Wait input data (default timeout = 100 ms)
-        struct sockaddr_in* srcSockaddr = NULL;
-        bytes = udp_port_read_data(&channel->smart_sock, packet_data, channel->max_packet_size, srcSockaddr);
-#else
-//------Test---------------------------------------------------------------------------------------------------
-        char datatest[10] = {1,2,3,4,5,6,7,8,9,10};
-        // encode to memory buffer
-        mpack_writer_t writer;
-        char* test_packet = NULL;
-        mpack_writer_init_growable(&writer, &test_packet, &bytes);
-
-        // write the example on the msgpack homepage
-        mpack_start_map(&writer, 2);
-        {
-            // Идентификатор сообщения
-            mpack_write_cstr(&writer, "msg_uid"); mpack_write_uint(&writer, test_msg_uid++);
-
-            // Сообщение
-            mpack_write_cstr(&writer, "msg"); mpack_start_map(&writer, 5);
-            {
-                // Тип команды: rqst - запрос, answ - ответ
-                mpack_write_cstr(&writer, "type"); mpack_write_cstr(&writer, "rqst");
-
-                // Логический порт (обработчик команды)
-                mpack_write_cstr(&writer, "name"); mpack_write_cstr(&writer, "test_cmd");
-
-                // Идентификатор команды. В случае с цепочкой все сообщения одной команды имеют одинаковый uid
-                mpack_write_cstr(&writer, "uid"); mpack_write_uint(&writer, test_uid++);
-
-                // Тип содержимого - chunk, payload
-                mpack_write_cstr(&writer, "content_type"); mpack_write_cstr(&writer, "chunk");
-
-                mpack_write_cstr(&writer, "chunk"); mpack_start_map(&writer, 5);
-                {
-                    // Если присутствует - указывает, каким протоколом упакованы данные в цепочке, если нет - сырые данные
-                    // mpack_write_cstr(&writer, "container_type"); mpack_write_cstr(&writer, "mpack");
-
-                    // Полный размер
-                    mpack_write_cstr(&writer, "chain_size"); mpack_write_uint(&writer, sizeof (datatest));
-
-                    // crc-16
-                    mpack_write_cstr(&writer, "chain_crc16"); mpack_write_uint(&writer, 0);
-
-                    // Смещение фрагмента данных в цепочке
-                    mpack_write_cstr(&writer, "offset"); mpack_write_uint(&writer, 0);
-
-                    // Флаг последнего фрагмента
-                    mpack_write_cstr(&writer, "last"); mpack_write_bool(&writer, TRUE);
-
-                    // Бинарные данные
-                    mpack_write_cstr(&writer, "data"); mpack_write_bin(&writer, datatest, sizeof (datatest));
-
-                }
-                mpack_finish_map(&writer);
-            }
-            mpack_finish_map(&writer);
-        }
-        mpack_finish_map(&writer);
-
-        // finish writing
-        if (mpack_writer_destroy(&writer) != mpack_ok) {
-            fprintf(stderr, "An error occurred encoding the data!\n");
-            return FALSE;
-        }
-
-        memcpy(packet_data, test_packet, bytes);
-        free(test_packet);
-//-------------------------------------------------------------------------------------------------------------
-#endif
+        struct sockaddr_in srcSockaddr = {0};
+        bytes = udp_port_read_data(&channel->smart_sock, packet_data, channel->max_packet_size, &srcSockaddr);
         // Check new data precense.
         if (bytes > 0)
         {
+            if (channel->out_udp_port == 0)
+            {
+                channel->smart_sock.output_addr.sin_port = srcSockaddr.sin_port;
+                channel->smart_sock.output_addr.sin_addr = srcSockaddr.sin_addr;
+                channel->smart_sock.output_addr.sin_family = srcSockaddr.sin_family;
+            }
             // Decode input packet.
             result_value = smart_parser_decode_msg(&channel->smart_parser,
                         packet_data, (uint16_t)bytes);
@@ -238,7 +177,7 @@ void *read_thread_func (void *args) {
             }
         }else
         {
-            printf("no data has been received\n");
+            //printf("no data has been received\n");
         }
     }
 
@@ -317,12 +256,41 @@ uint8_t smart_channel_init(smart_channel* channel, char *init_string)
     }
 
     // Try open socket.
-    udp_port_set_dst_ip(&channel->smart_sock, channel->dst_ip_addr);
+
     udp_port_set_host_ip(&channel->smart_sock, channel->host_ip_addr);
-    if (!udp_port_open(&channel->smart_sock, channel->out_udp_port,
-                       channel->socket_timeout, TRUE))
+
+    // Init output net atributes.
+    if (channel->in_udp_port != 0)
     {
-        return FALSE;
+        if (channel->out_udp_port != 0)
+        {
+            udp_port_set_dst_ip(&channel->smart_sock, channel->dst_ip_addr);
+            channel->smart_sock.output_addr.sin_port = htons(channel->out_udp_port);
+            channel->smart_sock.output_addr.sin_family = AF_INET;
+        }
+
+        if (!udp_port_open(&channel->smart_sock, channel->in_udp_port,
+                           channel->socket_timeout, FALSE))
+        {
+            return FALSE;
+        }
+    }else
+    {
+        if (channel->out_udp_port != 0)
+        {
+            udp_port_set_dst_ip(&channel->smart_sock, channel->dst_ip_addr);
+            channel->smart_sock.output_addr.sin_port = htons(channel->out_udp_port);
+            channel->smart_sock.output_addr.sin_family = AF_INET;
+
+            if (!udp_port_open(&channel->smart_sock, channel->out_udp_port,
+                               channel->socket_timeout, TRUE))
+            {
+                return FALSE;
+            }
+        }else
+        {
+            return FALSE;
+        }
     }
 
     // Parser initialization
