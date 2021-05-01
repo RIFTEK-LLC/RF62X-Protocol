@@ -1,0 +1,1 @@
+# SMART Protocol for scanners series RF62X-smart

@@ -1,0 +1,5 @@
+#ifndef DATARECIEVER_H
+#define DATARECIEVER_H
+
+
+#endif // DATARECIEVER
