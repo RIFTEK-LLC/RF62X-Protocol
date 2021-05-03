@@ -1,66 +1,13 @@
-#include "smartutils.h"
+#include "utils.h"
 
-#ifndef _WIN32
-#define INVALID_SOCKET          (-1)
-#define SOCKET_ERROR            (-1)
-#define TRUE 1
-#define FALSE 0
-#endif
-
-#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
-  #define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
-#else
-  #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
-#endif
-
-int get_time_of_day(struct timeval *tv, struct timezone *tz)
-{
-#ifdef _WIN32
-    FILETIME ft;
-    unsigned __int64 tmpres = 0;
-    static int tzflag = 0;
-
-    if (NULL != tv)
-    {
-        GetSystemTimeAsFileTime(&ft);
-
-        tmpres |= ft.dwHighDateTime;
-        tmpres <<= 32;
-        tmpres |= ft.dwLowDateTime;
-
-        tmpres /= 10;  /*convert into microseconds*/
-        /*converting file time to unix epoch*/
-        tmpres -= DELTA_EPOCH_IN_MICROSECS;
-        tv->tv_sec = (long)(tmpres / 1000000UL);
-        tv->tv_usec = (long)(tmpres % 1000000UL);
-    }
-
-    if (NULL != tz)
-    {
-        if (!tzflag)
-        {
-            _tzset();
-            tzflag++;
-        }
-        tz->tz_minuteswest = _timezone / 60;
-        tz->tz_dsttime = _daylight;
-    }
-
-    return 0;
-#else
-
-    return gettimeofday(tv, tz);
-
-#endif
-}
-
-
-/**
- * @brief string_to_uint - Convert char* to UINT32
- * @param string_val Input C string e.g. "1234"
- * @param uint32_val Output UINT32
- * @return TRUE on success, else FALSE
+/*==============================================================================
+ * CONVERT UTILS
+ *
+ * 1. From STRING to UINT16, UINT32
+ * 1.1 uint8_t string_to_uint16 (const char*  string_val, uint16_t* uint16_val);
+ * 1.2 uint8_t string_to_uint32 (const char*  string_val, uint32_t* uint32_val);
  */
+
 uint8_t string_to_uint32 (const char*  string_val, uint32_t* uint32_val)
 {
     for (int i=0; string_val[i]!= '\0'; i++)
@@ -72,13 +19,6 @@ uint8_t string_to_uint32 (const char*  string_val, uint32_t* uint32_val)
     *uint32_val = atoi(string_val);
     return TRUE;
 }
-
-/**
- * @brief string_to_uint16 - Convert char* to UINT16
- * @param string_val Input C string e.g. "1234"
- * @param uint16_val Output UINT32
- * @return TRUE on success, else FALSE
- */
 uint8_t string_to_uint16 (const char*  string_val, uint16_t* uint16_val)
 {
     for (int i=0; string_val[i]!= '\0'; i++)
@@ -95,12 +35,14 @@ uint8_t string_to_uint16 (const char*  string_val, uint16_t* uint16_val)
     return TRUE;
 }
 
-/**
- * @brief ip_string_to_uint - Convert human readable IPv4 address to UINT32
- * @param ip_string Input C string e.g. "192.168.0.1"
- * @param ip_addr Output IP address as UINT32
- * @return TRUE on success, else FALSE
+
+/*==============================================================================
+ * NETWORK UTILS
+ *
+ * 1 IP STRING from/to UINT32
+ * 1.1 uint8_t ip_string_to_uint32 (const char*  ip_string, uint32_t* ip_addr);
  */
+
 uint8_t ip_string_to_uint32 (const char*  ip_string, uint32_t* ip_addr)
 {
     unsigned int            byte3;
@@ -116,17 +58,9 @@ uint8_t ip_string_to_uint32 (const char*  ip_string, uint32_t* ip_addr)
     if (sscanf (ip_string, "%u.%u.%u.%u%1s",
                 &byte3, &byte2, &byte1, &byte0, dummy_string) == 4)
     {
-        if (    (byte3 < 256)
-                && (byte2 < 256)
-                && (byte1 < 256)
-                && (byte0 < 256)
-                )
+        if ((byte3 < 256) && (byte2 < 256) && (byte1 < 256) && (byte0 < 256))
         {
-            *ip_addr  =   (byte3 << 24)
-                    + (byte2 << 16)
-                    + (byte1 << 8)
-                    +  byte0;
-
+            *ip_addr = (byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0;
             return TRUE;
         }
     }
@@ -134,8 +68,22 @@ uint8_t ip_string_to_uint32 (const char*  ip_string, uint32_t* ip_addr)
     return FALSE;
 }
 
-/*
+/*==============================================================================
  * THREAD UTILS
+ *
+ * 1. Errors
+ * 1.1 void error_pthread_mutex_unlock(const int unlock_rv);
+ * 1.2 void error_pthread_mutex_lock(const int lock_rv);
+ * 1.3 void error_pthread_cond_signal(const int signal_rv);
+ * 1.4 void error_pthread_setcanceltype(const int setcanceltype_rv);
+ * 1.5 void error_pthread_create(const int create_rv);
+ * 1.6 void error_pthread_cond_timedwait(const int timed_wait_rv);
+ * 1.7 void error_pthread_join(const int join_rv);
+ * 1.8 void error_clock_gettime(const int gettime_rv);
+ *
+ * 2. Examples
+ * 2.1 void *worker_thread_example(void *data);
+ * 2.2 int main_thread_example();
  */
 
 void error_pthread_mutex_unlock(const int unlock_rv)
@@ -144,10 +92,12 @@ void error_pthread_mutex_unlock(const int unlock_rv)
     switch (unlock_rv)
     {
     case EINVAL:
-        fprintf(stderr, "The value specified by mutex does not refer to an initialized mutex object.\n");
+        fprintf(stderr, "The value specified by mutex does not refer to an "
+                        "initialized mutex object.\n");
         break;
     case EAGAIN:
-        fprintf(stderr, "The mutex could not be acquired because the maximum number of recursive locks for mutex has been exceeded.\n");
+        fprintf(stderr, "The mutex could not be acquired because the maximum "
+                        "number of recursive locks for mutex has been exceeded.\n");
         break;
     case EPERM:
         fprintf(stderr, "The current thread does not own the mutex.\n");
@@ -156,35 +106,36 @@ void error_pthread_mutex_unlock(const int unlock_rv)
         break;
     }
 }
-
 void error_pthread_mutex_lock(const int lock_rv)
 {
     fprintf(stderr, "Failed to lock mutex.\n");
     switch (lock_rv)
     {
     case EINVAL:
-        fprintf(stderr, "The value specified by mutex does not refer to an initialized mutex object or the mutex was created with the protocol attribute having the value PTHREAD_PRIO_PROTECT and the calling thread's priority is higher than the mutex's current priority ceiling.\n");
+        fprintf(stderr, "The value specified by mutex does not refer to an "
+                        "initialized mutex object or the mutex was created with the protocol attribute having the value PTHREAD_PRIO_PROTECT and the calling thread's priority is higher than the mutex's current priority ceiling.\n");
         break;
     case EAGAIN:
-        fprintf(stderr, "The mutex could not be acquired because the maximum number of recursive locks for mutex has been exceeded.\n");
+        fprintf(stderr, "The mutex could not be acquired because the maximum "
+                        "number of recursive locks for mutex has been exceeded.\n");
         break;
     case EDEADLK:
-        fprintf(stderr, "A deadlock condition was detected or the current thread already owns the mutex.\n");
+        fprintf(stderr, "A deadlock condition was detected or the current "
+                        "thread already owns the mutex.\n");
         break;
     default:
         break;
     }
 }
-
 void error_pthread_cond_signal(const int signal_rv)
 {
     fprintf(stderr, "Could not signal.\n");
     if (signal_rv == EINVAL)
     {
-        fprintf(stderr, "The value cond does not refer to an initialised condition variable.\n");
+        fprintf(stderr, "The value cond does not refer to an initialised "
+                        "condition variable.\n");
     }
 }
-
 void error_pthread_setcanceltype(const int setcanceltype_rv)
 {
     fprintf(stderr, "Could not change cancelability type of thread.\n");
@@ -193,45 +144,47 @@ void error_pthread_setcanceltype(const int setcanceltype_rv)
         fprintf(stderr, "Invalid value for type.\n");
     }
 }
-
 void error_pthread_create(const int create_rv)
 {
     fprintf(stderr, "Could not create thread.\n");
     switch (create_rv)
     {
     case EAGAIN:
-        fprintf(stderr, "Insufficient resources to create another thread or a system-imposed limit on the number of threads was encountered.\n");
+        fprintf(stderr, "Insufficient resources to create another thread or a "
+                        "system-imposed limit on the number of threads was encountered.\n");
         break;
     case EINVAL:
         fprintf(stderr, "Invalid settings in attr.\n");
         break;
     case EPERM:
-        fprintf(stderr, "No permission to set the scheduling policy and parameters specified in attr.\n");
+        fprintf(stderr, "No permission to set the scheduling policy and "
+                        "parameters specified in attr.\n");
         break;
     default:
         break;
     }
 }
-
 void error_pthread_cond_timedwait(const int timed_wait_rv)
 {
     fprintf(stderr, "Conditional timed wait, failed.\n");
     switch (timed_wait_rv)
     {
     case ETIMEDOUT:
-        fprintf(stderr, "The time specified by abstime to pthread_cond_timedwait() has passed.\n");
+        fprintf(stderr, "The time specified by abstime to "
+                        "pthread_cond_timedwait() has passed.\n");
         break;
     case EINVAL:
-        fprintf(stderr, "The value specified by abstime, cond or mutex is invalid.\n");
+        fprintf(stderr, "The value specified by abstime, cond or "
+                        "mutex is invalid.\n");
         break;
     case EPERM:
-        fprintf(stderr, "The mutex was not owned by the current thread at the time of the call.\n");
+        fprintf(stderr, "The mutex was not owned by the current thread at "
+                        "the time of the call.\n");
         break;
     default:
         break;
     }
 }
-
 void error_pthread_join(const int join_rv)
 {
 
@@ -239,19 +192,22 @@ void error_pthread_join(const int join_rv)
     switch (join_rv)
     {
     case EINVAL:
-        fprintf(stderr, "The implementation has detected that the value specified by thread does not refer to a joinable thread.\n");
+        fprintf(stderr, "The implementation has detected that the value "
+                        "specified by thread does not refer to a "
+                        "joinable thread.\n");
         break;
     case ESRCH:
-        fprintf(stderr, "No thread could be found corresponding to that specified by the given thread ID.\n");
+        fprintf(stderr, "No thread could be found corresponding to that "
+                        "specified by the given thread ID.\n");
         break;
     case EDEADLK:
-        fprintf(stderr, "A deadlock was detected or the value of thread specifies the calling thread.\n");
+        fprintf(stderr, "A deadlock was detected or the value of thread "
+                        "specifies the calling thread.\n");
         break;
     default:
         break;
     }
 }
-
 void error_clock_gettime(const int gettime_rv)
 {
     fprintf(stderr, "Could not get time from clock.\n");
@@ -264,7 +220,8 @@ void error_clock_gettime(const int gettime_rv)
         fprintf(stderr, "The clk_id specified is not supported on this system.\n");
         break;
     case EPERM:
-        fprintf(stderr, "clock_settime() does not have permission to set the clock indicated.\n");
+        fprintf(stderr, "clock_settime() does not have permission to set "
+                        "the clock indicated.\n");
         break;
     default:
         break;
@@ -415,4 +372,60 @@ int main_thread_example()
         }
     }
     return 0;
+}
+
+
+
+/*==============================================================================
+ * TIME UTILS
+ *
+ * 1. int get_time_of_day(struct timeval *tv, struct timezone *tz) - This function
+ *    can get the time as well as a timezone.
+ */
+
+#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
+  #define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
+#else
+  #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
+#endif
+
+int get_time_of_day(struct timeval *tv, struct timezone *tz)
+{
+#ifdef _WIN32
+    FILETIME ft;
+    unsigned __int64 tmpres = 0;
+    static int tzflag = 0;
+
+    if (NULL != tv)
+    {
+        GetSystemTimeAsFileTime(&ft);
+
+        tmpres |= ft.dwHighDateTime;
+        tmpres <<= 32;
+        tmpres |= ft.dwLowDateTime;
+
+        tmpres /= 10;  /*convert into microseconds*/
+        /*converting file time to unix epoch*/
+        tmpres -= DELTA_EPOCH_IN_MICROSECS;
+        tv->tv_sec = (long)(tmpres / 1000000UL);
+        tv->tv_usec = (long)(tmpres % 1000000UL);
+    }
+
+    if (NULL != tz)
+    {
+        if (!tzflag)
+        {
+            _tzset();
+            tzflag++;
+        }
+        tz->tz_minuteswest = _timezone / 60;
+        tz->tz_dsttime = _daylight;
+    }
+
+    return 0;
+#else
+
+    return gettimeofday(tv, tz);
+
+#endif
 }

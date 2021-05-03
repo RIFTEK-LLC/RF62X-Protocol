@@ -1,6 +1,6 @@
-#include "smartparser.h"
-#include "smartchannel.h"
-#include "smartutils.h"
+#include "RF62Xparser.h"
+#include "RF62Xchannel.h"
+#include "utils.h"
 #include "mpack/mpack.h"
 
 #include <string.h>
@@ -29,13 +29,13 @@ typedef struct
 {
     char* key;
     char* value;
-}smart_parser_init_param_t;
+}RF62X_parser_init_param_t;
 
-uint8_t smart_parser_init(smart_parser_t* parser,
+uint8_t RF62X_parser_init(RF62X_parser_t* parser,
                           char *init_string)
 {
-    // Preparation smart_parser for initialization
-    memset(parser, 0, sizeof (smart_parser_t));
+    // Preparation RF62X_parser for initialization
+    memset(parser, 0, sizeof (RF62X_parser_t));
     parser->packet_data_buff = NULL;
     parser->packet_data_pos = 0;
     parser->data_packet_flag = FALSE;
@@ -46,7 +46,7 @@ uint8_t smart_parser_init(smart_parser_t* parser,
     parser->lost_full_data_size = 0;
     parser->detected_lost_data_id = 0;
     parser->detected_lost_data_logic_port = 0;
-    for (int i = 0; i < SMART_PARSER_NUM_LOGIC_PORTS; i++)
+    for (int i = 0; i < RF62X_PARSER_NUM_LOGIC_PORTS; i++)
     {
         parser->logic_port_name_list[i] = NULL;
     }
@@ -55,6 +55,9 @@ uint8_t smart_parser_init(smart_parser_t* parser,
 
     pthread_cond_init(&parser->input_data_cond_var, NULL);
     pthread_mutex_init(&parser->input_data_cond_var_mutex, NULL);
+
+    pthread_cond_init(&parser->input_wait_confirm_cond_var, NULL);
+    pthread_mutex_init(&parser->input_wait_confirm_var_mutex, NULL);
 
     pthread_mutex_init(&parser->output_msg_buff_mutex, NULL);
     pthread_mutex_init(&parser->input_msg_buff_mutex, NULL);
@@ -78,14 +81,14 @@ uint8_t smart_parser_init(smart_parser_t* parser,
 
         char *token;
         int param_count = 0;
-        token = strtok(_init_string, "-");
+        token = strtok(_init_string, "--");
         while (token != NULL)
         {
             param_count++;
-            token=strtok(NULL,"-");
+            token=strtok(NULL,"--");
         }
 
-        smart_parser_init_param_t* params = calloc(param_count, sizeof (smart_parser_init_param_t));
+        RF62X_parser_init_param_t* params = calloc(param_count, sizeof (RF62X_parser_init_param_t));
 
         memcpy(_init_string, init_string, _str_len);
         token = strtok(_init_string, " "); int token_len = 0;
@@ -105,7 +108,7 @@ uint8_t smart_parser_init(smart_parser_t* parser,
         // Set params to variabes.
         for(int i = 0; i < param_count; i++)
         {
-            smart_parser_opt_set(parser, params[i].key, params[i].value);
+            RF62X_parser_opt_set(parser, params[i].key, params[i].value);
             free(params[i].key); params[i].key = NULL;
             free(params[i].value); params[i].value = NULL;
         }
@@ -119,33 +122,34 @@ uint8_t smart_parser_init(smart_parser_t* parser,
         parser->output_data_id = 0;
 
         // Init output data structures
-        parser->output_msg_buffer = calloc(SMART_PARSER_OUTPUT_BUFFER_QUEUE, sizeof (smart_parser_output_msg_t));
-        for(int i = 0; i < SMART_PARSER_OUTPUT_BUFFER_QUEUE; i++)
+        parser->output_msg_buffer = calloc(RF62X_PARSER_OUTPUT_BUFFER_QUEUE, sizeof (RF62X_parser_output_msg_t));
+        for(int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
         {
-            parser->output_msg_buffer[i].msg = calloc(1, sizeof (smart_msg_t));
-            parser->output_msg_buffer[i].msg->state = SMART_MSG_EMPTY;
+            parser->output_msg_buffer[i].msg = calloc(1, sizeof (RF62X_msg_t));
+            parser->output_msg_buffer[i].msg->state = RF62X_MSG_EMPTY;
             parser->output_msg_buffer[i].msg->result = NULL;
             parser->output_msg_buffer[i].data_pos = 0;
         }
-        parser->output_msg_index = SMART_PARSER_OUTPUT_BUFFER_QUEUE - 1;
+        parser->output_msg_index = RF62X_PARSER_OUTPUT_BUFFER_QUEUE - 1;
         // Check of initialization of output msg buffer.
 
-        parser->input_msg_buffer = calloc(SMART_PARSER_INPUT_BUFFER_QUEUE, sizeof (smart_parser_input_msg_t));
+        parser->input_msg_buffer = calloc(RF62X_PARSER_INPUT_BUFFER_QUEUE, sizeof (RF62X_parser_input_msg_t));
         // Check data input data structure initialization
-        for (int i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+        for (int i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
         {
-            parser->input_msg_buffer[i].msg = calloc(1, sizeof (smart_msg_t));
-            parser->input_msg_buffer[i].msg->state = SMART_MSG_EMPTY;
+            parser->input_msg_buffer[i].msg = calloc(1, sizeof (RF62X_msg_t));
+            parser->input_msg_buffer[i].msg->state = RF62X_MSG_EMPTY;
             parser->input_msg_buffer[i].msg->result = NULL;
             parser->input_msg_buffer[i].data_pos = 0;
         }
-        parser->input_msg_index = SMART_PARSER_INPUT_BUFFER_QUEUE - 1;
+        parser->input_msg_index = RF62X_PARSER_INPUT_BUFFER_QUEUE - 1;
 
         // Init input data structures
         parser->input_data = NULL;
         parser->input_data_index = 0;
 
         parser->input_data_cond_var_flag = FALSE;
+        parser->input_wait_confirm_cond_var_flag = FALSE;
 
         return TRUE;
     }
@@ -154,17 +158,17 @@ uint8_t smart_parser_init(smart_parser_t* parser,
 }
 
 
-uint8_t smart_parser_opt_set(smart_parser_t* parser, char *opt_name, char *val)
+uint8_t RF62X_parser_opt_set(RF62X_parser_t* parser, char *opt_name, char *val)
 {
-    if (0 == strcmp(opt_name, "-max_packet_size"))
+    if (0 == strcmp(opt_name, "--max_packet_size"))
     {
         string_to_uint16(val, &parser->max_packet_size);
     }
-    else if (0 == strcmp(opt_name, "-max_data_size"))
+    else if (0 == strcmp(opt_name, "--max_data_size"))
     {
         string_to_uint32(val, &parser->max_data_size);
     }
-    else if (0 == strcmp(opt_name, "-src_device_uid"))
+    else if (0 == strcmp(opt_name, "--src_device_uid"))
     {
         string_to_uint32(val, &parser->src_device_uid);
     }
@@ -173,9 +177,9 @@ uint8_t smart_parser_opt_set(smart_parser_t* parser, char *opt_name, char *val)
 
 }
 
-uint16_t smart_parser_get_logic_port_number_by_cmd_name(smart_parser_t* parser, char* cmd_name)
+uint16_t RF62X_parser_get_logic_port_number_by_cmd_name(RF62X_parser_t* parser, char* cmd_name)
 {
-    for(uint16_t i = 0; i < SMART_PARSER_NUM_LOGIC_PORTS; i++)
+    for(uint16_t i = 0; i < RF62X_PARSER_NUM_LOGIC_PORTS; i++)
     {
         if (parser->logic_port_name_list[i] != NULL)
         {
@@ -195,12 +199,12 @@ uint16_t smart_parser_get_logic_port_number_by_cmd_name(smart_parser_t* parser, 
 }
 
 
-int32_t smart_parser_encode_lost_data_packet(smart_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
+int32_t RF62X_parser_encode_lost_data_packet(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
 {
 
 }
 
-void smart_parser_get_msg_confirmation_packet(smart_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
+void RF62X_parser_get_msg_confirmation_packet(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
 {
     const int lock_rv = pthread_mutex_lock(&parser->input_msg_buff_mutex);
     if (lock_rv)
@@ -210,10 +214,10 @@ void smart_parser_get_msg_confirmation_packet(smart_parser_t *parser, uint8_t *p
     }
 
     // Поиск сообщений, требующих подтверждение
-    for (uint16_t i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+    for (uint16_t i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
     {
-        smart_msg_t* msg = parser->input_msg_buffer[i].msg;
-        if (msg->state & SMART_MSG_WAIT_CONFIRMATION)
+        RF62X_msg_t* msg = parser->input_msg_buffer[i].msg;
+        if (msg->state & RF62X_MSG_WAIT_CONFIRMATION)
         {
             // Create FULL DATA packet for measurement SIZE of data packet
             mpack_writer_t writer;
@@ -240,8 +244,8 @@ void smart_parser_get_msg_confirmation_packet(smart_parser_t *parser, uint8_t *p
                 *packet_size = bytes;
             }
 
-            msg->state ^= SMART_MSG_WAIT_CONFIRMATION;
-            msg->state |= SMART_MSG_CONFIRMED;
+            msg->state ^= RF62X_MSG_WAIT_CONFIRMATION;
+            msg->state |= RF62X_MSG_CONFIRMED;
 
             // Copy data
             memcpy(&packet_data[0], send_packet, bytes);
@@ -257,7 +261,7 @@ void smart_parser_get_msg_confirmation_packet(smart_parser_t *parser, uint8_t *p
     pthread_mutex_unlock(&parser->input_msg_buff_mutex);
 }
 
-void smart_parser_get_lost_data_request_packet(smart_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
+void RF62X_parser_get_lost_data_request_packet(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
 {
 
 }
@@ -266,48 +270,48 @@ void smart_parser_get_lost_data_request_packet(smart_parser_t *parser, uint8_t *
 
 
 
-smart_msg_t* smart_parser_get_free_output_msg_buffer(smart_parser_t *parser)
+RF62X_msg_t* RF62X_parser_get_free_output_msg_buffer(RF62X_parser_t *parser)
 {
 
     // Check of initialization of output msg buffer.
     if (parser->output_msg_buffer == NULL)
         return NULL;
 
-    for (int i = 0; i < SMART_PARSER_OUTPUT_BUFFER_QUEUE; i++)
+    for (int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
     {
-        parser->output_msg_index = (parser->output_msg_index + 1) % SMART_PARSER_OUTPUT_BUFFER_QUEUE;
-        smart_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
+        parser->output_msg_index = (parser->output_msg_index + 1) % RF62X_PARSER_OUTPUT_BUFFER_QUEUE;
+        RF62X_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
 
         if (msg == NULL)
         {
             return NULL;
         }
 
-        if (msg->state == SMART_MSG_EMPTY)
+        if (msg->state == RF62X_MSG_EMPTY)
         {
             return msg;
         }
 
-        if (msg->state & SMART_MSG_TIMEOUT)
+        if (msg->state & RF62X_MSG_TIMEOUT)
         {
             msg->_timeout_clb(msg);
-            if (msg->state & SMART_MSG_ANSWERED)
+            if (msg->state & RF62X_MSG_ANSWERED)
                 msg->_free_clb(msg);
-            smart_cleanup_msg(msg);
+            RF62X_cleanup_msg(msg);
             return msg;
         }
     }
 
     // Если нет свободных сообщений, то взять один из обработаных запросов
-    for (int i = 0; i < SMART_PARSER_OUTPUT_BUFFER_QUEUE; i++)
+    for (int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
     {
-        parser->output_msg_index = (parser->output_msg_index + 1) % SMART_PARSER_OUTPUT_BUFFER_QUEUE;
-        smart_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
+        parser->output_msg_index = (parser->output_msg_index + 1) % RF62X_PARSER_OUTPUT_BUFFER_QUEUE;
+        RF62X_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
 
-        if (msg->state & SMART_MSG_ANSWERED)
+        if (msg->state & RF62X_MSG_ANSWERED)
         {
             msg->_free_clb(msg);
-            smart_cleanup_msg(msg);
+            RF62X_cleanup_msg(msg);
             return msg;
         }
     }
@@ -315,14 +319,14 @@ smart_msg_t* smart_parser_get_free_output_msg_buffer(smart_parser_t *parser)
     // Если нет обработаных запросов, то скорее всего очередь
     // забита не отвеченными сообщениями.. В этом случае придется использовать
     // последнее из не отвеченных (TODO выбор последнего в очереди)
-    for (int i = 0; i < SMART_PARSER_OUTPUT_BUFFER_QUEUE; i++)
+    for (int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
     {
-        parser->output_msg_index = (parser->output_msg_index + 1) % SMART_PARSER_OUTPUT_BUFFER_QUEUE;
-        smart_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
+        parser->output_msg_index = (parser->output_msg_index + 1) % RF62X_PARSER_OUTPUT_BUFFER_QUEUE;
+        RF62X_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
 
-        if (msg->state & SMART_MSG_ENCODED)
+        if (msg->state & RF62X_MSG_ENCODED)
         {
-            smart_cleanup_msg(msg);
+            RF62X_cleanup_msg(msg);
             return msg;
         }
     }
@@ -330,7 +334,7 @@ smart_msg_t* smart_parser_get_free_output_msg_buffer(smart_parser_t *parser)
     return NULL;
 }
 
-uint8_t smart_parser_add_msg(smart_parser_t *parser, smart_msg_t *msg)
+uint8_t RF62X_parser_add_msg(RF62X_parser_t *parser, RF62X_msg_t *msg)
 {
     msg->_device_id = parser->src_device_uid;
     // Check input params.
@@ -343,7 +347,7 @@ uint8_t smart_parser_add_msg(smart_parser_t *parser, smart_msg_t *msg)
 
     // Change buffer index and change current data ID
     pthread_mutex_lock(&parser->output_msg_buff_mutex);
-    smart_msg_t* buffer_msg = smart_parser_get_free_output_msg_buffer(parser);
+    RF62X_msg_t* buffer_msg = RF62X_parser_get_free_output_msg_buffer(parser);
     if (buffer_msg == NULL)
     {
         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
@@ -377,48 +381,48 @@ uint8_t smart_parser_add_msg(smart_parser_t *parser, smart_msg_t *msg)
     buffer_msg->_timeout = msg->_timeout;
     buffer_msg->_sending_time = clock() * (1000.0 /CLOCKS_PER_SEC);
 
-    buffer_msg->state = SMART_MSG_WAIT_ENCODING;
+    buffer_msg->state = RF62X_MSG_WAIT_ENCODING;
 
     buffer_msg->result = NULL;
     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
     return TRUE;
 }
 
-smart_msg_t* smart_parser_get_free_input_msg_buffer(smart_parser_t *parser)
+RF62X_msg_t* RF62X_parser_get_free_input_msg_buffer(RF62X_parser_t *parser)
 {
-    for (int i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+    for (int i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
     {
-        parser->input_msg_index = (parser->input_msg_index + 1) % SMART_PARSER_INPUT_BUFFER_QUEUE;
-        smart_msg_t* msg = parser->input_msg_buffer[parser->input_msg_index].msg;
+        parser->input_msg_index = (parser->input_msg_index + 1) % RF62X_PARSER_INPUT_BUFFER_QUEUE;
+        RF62X_msg_t* msg = parser->input_msg_buffer[parser->input_msg_index].msg;
 
         if (msg == NULL)
         {
             return NULL;
         }
 
-        if (msg->state == SMART_MSG_EMPTY)
+        if (msg->state == RF62X_MSG_EMPTY)
         {
             return msg;
         }
 
-        if (msg->state & SMART_MSG_DECODED &&
-                (((msg->state & SMART_MSG_READ) == TRUE)
-                 || ((msg->state & SMART_MSG_WAIT_READING) == FALSE)))
+        if (msg->state & RF62X_MSG_DECODED &&
+                (((msg->state & RF62X_MSG_READ) == TRUE)
+                 || ((msg->state & RF62X_MSG_WAIT_READING) == FALSE)))
         {
-            smart_cleanup_msg(msg);
+            RF62X_cleanup_msg(msg);
             return msg;
         }
     }
 
     // Если нет свободных сообщений, то взять один из входящих запросов, ожидающих прочтение
-    for (int i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+    for (int i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
     {
-        parser->input_msg_index = (parser->input_msg_index + 1) % SMART_PARSER_INPUT_BUFFER_QUEUE;
-        smart_msg_t* msg = parser->input_msg_buffer[parser->input_msg_index].msg;
+        parser->input_msg_index = (parser->input_msg_index + 1) % RF62X_PARSER_INPUT_BUFFER_QUEUE;
+        RF62X_msg_t* msg = parser->input_msg_buffer[parser->input_msg_index].msg;
 
-        if (msg->state & SMART_MSG_WAIT_READING)
+        if (msg->state & RF62X_MSG_WAIT_READING)
         {
-            smart_cleanup_msg(msg);
+            RF62X_cleanup_msg(msg);
             return msg;
         }
     }
@@ -426,23 +430,23 @@ smart_msg_t* smart_parser_get_free_input_msg_buffer(smart_parser_t *parser)
     // Если нет входящих запросов, ожидающих прочтение, то скорее всего очередь
     // забита несобранными сообщениями.. В этом случае придется использовать
     // последнее из несобранных (TODO выбор последнего в очереди)
-    for (int i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+    for (int i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
     {
-        parser->input_msg_index = (parser->input_msg_index + 1) % SMART_PARSER_INPUT_BUFFER_QUEUE;
-        smart_msg_t* msg = parser->input_msg_buffer[parser->input_msg_index].msg;
+        parser->input_msg_index = (parser->input_msg_index + 1) % RF62X_PARSER_INPUT_BUFFER_QUEUE;
+        RF62X_msg_t* msg = parser->input_msg_buffer[parser->input_msg_index].msg;
 
-        if (msg->state & SMART_MSG_WAIT_DECODING)
+        if (msg->state & RF62X_MSG_WAIT_DECODING)
         {
-            smart_cleanup_msg(msg);
+            RF62X_cleanup_msg(msg);
             return msg;
         }
     }
     return NULL;
 }
 
-int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, uint16_t packet_size)
+int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t packet_size)
 {
-    int32_t result = SMART_PARSER_RETURN_STATUS_NO_DATA;
+    int32_t result = RF62X_PARSER_RETURN_STATUS_NO_DATA;
 
     // Get params
     mpack_tree_t tree;
@@ -450,7 +454,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
     mpack_tree_parse(&tree);
     if (mpack_tree_error(&tree) != mpack_ok)
     {
-        result = SMART_PARSER_RETURN_STATUS_NO_DATA;
+        result = RF62X_PARSER_RETURN_STATUS_NO_DATA;
         mpack_tree_destroy(&tree);
         return result;
     }
@@ -461,7 +465,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
     if (mpack_node_map_contains_cstr(root, "msg_uid"))
     {
         msg_uid = mpack_node_uint(mpack_node_map_cstr(root, "msg_uid"));
-        result = SMART_PARSER_RETURN_STATUS_DATA_CONFIRMATION;
+        result = RF62X_PARSER_RETURN_STATUS_DATA_CONFIRMATION;
     }
 
     // Идентификатор устройства
@@ -517,7 +521,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 
         // find input buffer index and change current data ID
         uint8_t is_chousen = FALSE;
-        smart_msg_t* input_msg = NULL;
+        RF62X_msg_t* input_msg = NULL;
         const int lock_rv = pthread_mutex_lock(&parser->input_msg_buff_mutex);
         if (lock_rv)
         {
@@ -525,7 +529,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
             return FALSE;
         }
         // Поиск среди имеющихся уже сообщений с тем же _uid
-        for (uint16_t i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+        for (uint16_t i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
         {
             if (parser->input_msg_buffer[i].msg->_uid == logic_port_uid &&
                     strcmp(parser->input_msg_buffer[i].msg->cmd_name, cmd_name) == 0)
@@ -540,14 +544,14 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
         // Если ранее не получено было это сообщение, то поиск первого свободного
         if (is_chousen == FALSE)
         {
-            input_msg = smart_parser_get_free_input_msg_buffer(parser);
+            input_msg = RF62X_parser_get_free_input_msg_buffer(parser);
         }
 
         // TODO: Если все заняты, то использовать последнее в очереди сообщение в буфере
         if (input_msg == NULL)
         {
             pthread_mutex_unlock(&parser->input_msg_buff_mutex);
-            return SMART_PARSER_RETURN_STATUS_NO_FREE_BUFFER;
+            return RF62X_PARSER_RETURN_STATUS_NO_FREE_BUFFER;
         }
 
         if (mpack_node_map_contains_cstr(msg_node, "chunk"))
@@ -565,14 +569,14 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
             }
 
 
-            if (input_msg->state == SMART_MSG_EMPTY)
+            if (input_msg->state == RF62X_MSG_EMPTY)
             {
                 // Init new input data atributes
                 input_msg->_msg_uid = msg_uid;
                 if (input_msg->_msg_uid != 0)
                     input_msg->confirmation_flag = TRUE;
                 input_msg->_uid = logic_port_uid;
-                input_msg->state = SMART_MSG_WAIT_DECODING;
+                input_msg->state = RF62X_MSG_WAIT_DECODING;
 
                 memcpy(input_msg->cmd_name, (char*)cmd_name, strlen(cmd_name) + 1);
 
@@ -649,9 +653,9 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 //                                calloc ((*input_msg->msg)->data_size, sizeof (uint8_t));
 
                     // Check input data ID. If data was copied befor then won't copy egain.
-                    for (int i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+                    for (int i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
                     {
-                        if ((parser->input_msg_buffer[i].msg->state & SMART_MSG_WAIT_READING) &&
+                        if ((parser->input_msg_buffer[i].msg->state & RF62X_MSG_WAIT_READING) &&
                                 parser->input_msg_buffer[i].msg->_uid == input_msg->_uid)
                         {
                             free(type); type = NULL;
@@ -672,9 +676,12 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 //                    strcpy(parser->input_data_cmd_name, cmd_name);
 //                    pthread_mutex_unlock(&parser->input_data_buff_mutex);
 
-                    input_msg->state |= SMART_MSG_WAIT_READING;
-                    input_msg->state ^= SMART_MSG_WAIT_DECODING;
-                    input_msg->state |= SMART_MSG_DECODED;
+                    input_msg->state |= RF62X_MSG_WAIT_READING;
+                    input_msg->state ^= RF62X_MSG_WAIT_DECODING;
+                    input_msg->state |= RF62X_MSG_DECODED;
+
+                    if (input_msg->confirmation_flag && msg_uid != 0)
+                        input_msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
 
 //                    memset(parser->input_msg_buffer[parser->input_msg_index].mask, 0, input_msg->data_size);
                     free(parser->input_msg_buffer[parser->input_msg_index].mask);
@@ -691,7 +698,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                     free(container_type); container_type = NULL;
                     free(data); data = NULL;
                     mpack_tree_destroy(&tree);
-                    return SMART_PARSER_RETURN_STATUS_DATA_READY;
+                    return RF62X_PARSER_RETURN_STATUS_DATA_READY;
                 }
                 else
                 {
@@ -701,7 +708,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                     free(data); data = NULL;
                     mpack_tree_destroy(&tree);
                     pthread_mutex_unlock(&parser->input_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_LOST_DATA_DETECTED;
+                    return RF62X_PARSER_RETURN_STATUS_LOST_DATA_DETECTED;
                 }
             }
             else
@@ -749,17 +756,17 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
         pthread_mutex_lock(&parser->output_msg_buff_mutex);
         pthread_mutex_lock(&parser->input_msg_buff_mutex);
         // Проверить ожидает ли какой-нибудь запрос ответ
-        for (int ii = 0; ii < SMART_PARSER_OUTPUT_BUFFER_QUEUE; ii++)
+        for (int ii = 0; ii < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; ii++)
         {
-            smart_msg_t* output_msg = parser->output_msg_buffer[ii].msg;
-            smart_msg_t* input_msg = NULL;
+            RF62X_msg_t* output_msg = parser->output_msg_buffer[ii].msg;
+            RF62X_msg_t* input_msg = NULL;
             if ((output_msg->_uid == logic_port_uid) &&
-                    (output_msg->state & SMART_MSG_WAIT_ANSW))
+                    (output_msg->state & RF62X_MSG_WAIT_ANSW))
             {
                 // find input buffer index and change current data ID
                 uint8_t is_chousen = FALSE;
                 // Поиск среди имеющихся уже сообщений с тем же _uid
-                for (uint16_t i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+                for (uint16_t i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
                 {
                     if (parser->input_msg_buffer[i].msg->_uid == logic_port_uid &&
                             parser->input_msg_buffer[i].msg->_device_id == src_device_uid &&
@@ -775,7 +782,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                 // Если ранее не получено было это сообщение, то поиск первого свободного
                 if (is_chousen == FALSE)
                 {
-                    input_msg = smart_parser_get_free_input_msg_buffer(parser);
+                    input_msg = RF62X_parser_get_free_input_msg_buffer(parser);
                 }
 
                 // TODO: Если все заняты, то использовать последнее в очереди сообщение в буфере
@@ -783,7 +790,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                 {
                     pthread_mutex_unlock(&parser->input_msg_buff_mutex);
                     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_NO_FREE_BUFFER;
+                    return RF62X_PARSER_RETURN_STATUS_NO_FREE_BUFFER;
                 }
 
                 if (mpack_node_map_contains_cstr(msg_node, "chunk"))
@@ -801,13 +808,13 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                         return result;
                     }
 
-                    if (input_msg->state == SMART_MSG_EMPTY)
+                    if (input_msg->state == RF62X_MSG_EMPTY)
                     {
                         // Init new input data atributes
                         input_msg->_msg_uid = msg_uid;
                         input_msg->_uid = logic_port_uid;
                         input_msg->_device_id = src_device_uid;
-                        input_msg->state = SMART_MSG_WAIT_DECODING;
+                        input_msg->state = RF62X_MSG_WAIT_DECODING;
 
                         memcpy(input_msg->cmd_name, (char*)cmd_name, strlen(cmd_name) + 1);
 
@@ -877,9 +884,9 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                                 input_msg->data_size)
                         {
                             // Check input data ID. If data was copied befor then won't copy egain.
-                            for (int i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+                            for (int i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
                             {
-                                if ((parser->input_msg_buffer[i].msg->state & SMART_MSG_WAIT_READING) &&
+                                if ((parser->input_msg_buffer[i].msg->state & RF62X_MSG_WAIT_READING) &&
                                         parser->input_msg_buffer[i].msg->_uid == input_msg->_uid)
                                 {
                                     free(type); type = NULL;
@@ -894,14 +901,14 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                             }
 
                             // Copy data to input buffer and copy data atributes.
-                            if (output_msg->state & SMART_MSG_WAIT_ANSW)
+                            if (output_msg->state & RF62X_MSG_WAIT_ANSW)
                                 output_msg->_answ_clb(
                                             input_msg->data, input_msg->data_size,
                                             src_device_uid, output_msg);
                             if (output_msg->one_answ_flag)
                             {
-                                output_msg->state ^= SMART_MSG_WAIT_ANSW;
-                                output_msg->state |= SMART_MSG_ANSWERED;
+                                output_msg->state ^= RF62X_MSG_WAIT_ANSW;
+                                output_msg->state |= RF62X_MSG_ANSWERED;
                             }
 
                             free(type); type = NULL;
@@ -909,21 +916,21 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                             free(container_type); container_type = NULL;
                             free(data); data = NULL;
                             mpack_tree_destroy(&tree);
-                            input_msg->state ^= SMART_MSG_WAIT_DECODING;
-                            input_msg->state |= SMART_MSG_DECODED;
+                            input_msg->state ^= RF62X_MSG_WAIT_DECODING;
+                            input_msg->state |= RF62X_MSG_DECODED;
                             free(parser->input_msg_buffer[parser->input_msg_index].mask);
                             if (output_msg->confirmation_flag && msg_uid != 0)
                             {
-                                input_msg->state |= SMART_MSG_WAIT_CONFIRMATION;
+                                input_msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
                                 input_msg->_msg_uid = msg_uid;
                                 pthread_mutex_unlock(&parser->input_msg_buff_mutex);
                                 pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                                return SMART_PARSER_RETURN_STATUS_DATA_CONFIRMATION;
+                                return RF62X_PARSER_RETURN_STATUS_DATA_CONFIRMATION;
                             }else
                             {
                                 pthread_mutex_unlock(&parser->input_msg_buff_mutex);
                                 pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                                return SMART_PARSER_RETURN_STATUS_DATA_READY;
+                                return RF62X_PARSER_RETURN_STATUS_DATA_READY;
                             }
                         }
                         else
@@ -935,7 +942,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                             mpack_tree_destroy(&tree);
                             pthread_mutex_unlock(&parser->input_msg_buff_mutex);
                             pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                            return SMART_PARSER_RETURN_STATUS_LOST_DATA_DETECTED;
+                            return RF62X_PARSER_RETURN_STATUS_LOST_DATA_DETECTED;
                         }
                     }
                     else
@@ -947,11 +954,11 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                         mpack_tree_destroy(&tree);
                         if (output_msg->confirmation_flag && msg_uid != 0)
                         {
-                            input_msg->state |= SMART_MSG_WAIT_CONFIRMATION;
+                            input_msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
                             input_msg->_msg_uid = msg_uid;
                             pthread_mutex_unlock(&parser->input_msg_buff_mutex);
                             pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                            return SMART_PARSER_RETURN_STATUS_DATA_CONFIRMATION;
+                            return RF62X_PARSER_RETURN_STATUS_DATA_CONFIRMATION;
                         }else
                         {
                             pthread_mutex_unlock(&parser->input_msg_buff_mutex);
@@ -981,19 +988,26 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
             return FALSE;
         }
         // Проверить ожидает ли какой-нибудь запрос ответ
-        for (int ii = 0; ii < SMART_PARSER_OUTPUT_BUFFER_QUEUE; ii++)
+        for (int ii = 0; ii < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; ii++)
         {
-            smart_msg_t* msg = parser->output_msg_buffer[ii].msg;
+            RF62X_msg_t* msg = parser->output_msg_buffer[ii].msg;
 
             if ((msg->_msg_uid == logic_port_uid) &&
-                    (msg->state & SMART_MSG_WAIT_CONFIRMATION))
+                    (msg->state & RF62X_MSG_WAIT_CONFIRMATION))
             {
-                msg->state ^= SMART_MSG_WAIT_CONFIRMATION;
-                msg->state |= SMART_MSG_CONFIRMED;
+                msg->state ^= RF62X_MSG_WAIT_CONFIRMATION;
+                msg->state |= RF62X_MSG_CONFIRMED;
+
+                // Send notification about new data
+                pthread_mutex_lock(&parser->input_wait_confirm_var_mutex);
+                parser->input_wait_confirm_cond_var_flag = TRUE;
+                pthread_cond_signal(&parser->input_wait_confirm_cond_var);
+                pthread_mutex_unlock(&parser->input_wait_confirm_var_mutex);
+
                 free(type); type = NULL;
                 mpack_tree_destroy(&tree);
                 pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                return SMART_PARSER_RETURN_STATUS_DATA_READY;
+                return RF62X_PARSER_RETURN_STATUS_DATA_READY;
             }
         }
         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
@@ -1002,7 +1016,7 @@ int32_t smart_parser_decode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
     free(type); type = NULL;
     mpack_tree_destroy(&tree);
     // Return DATA flag.
-    return SMART_PARSER_RETURN_STATUS_DATA;
+    return RF62X_PARSER_RETURN_STATUS_DATA;
 }
 
 uint16_t crc16(const uint8_t *data, uint32_t len)
@@ -1020,11 +1034,11 @@ uint16_t crc16(const uint8_t *data, uint32_t len)
     return crc;
 }
 int test_count = 1;
-int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
+int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
 {
     // Check output msg initialization.
     if (parser->output_msg_buffer == NULL)
-        return SMART_PARSER_RETURN_STATUS_NO_DATA;
+        return RF62X_PARSER_RETURN_STATUS_NO_DATA;
 
     const int lock_rv = pthread_mutex_lock(&parser->output_msg_buff_mutex);
     if (lock_rv)
@@ -1033,9 +1047,9 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
         return FALSE;
     }
 
-    smart_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
+    RF62X_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
     // Check data confirmation.
-    if (msg->state & SMART_MSG_WAIT_ENCODING)
+    if (msg->state & RF62X_MSG_WAIT_ENCODING)
     {
         // If this is the first message in the chain, then we need to add
         // all the keys to the message
@@ -1246,17 +1260,17 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 
                 // Return DATA packet flag
                 if (msg->confirmation_flag)
-                    msg->state |= SMART_MSG_WAIT_CONFIRMATION;
+                    msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
 
                 // Если сообщение полностью закодировано, то добавить соответствующие флаги
                 if (parser->output_msg_buffer[parser->output_msg_index].data_pos >=
                         (uint32_t)(msg->data_size))
                 {
-                    msg->state = SMART_MSG_ENCODED;
+                    msg->state = RF62X_MSG_ENCODED;
                     if (msg->wait_answ_flag)
-                        msg->state |= SMART_MSG_WAIT_ANSW;
+                        msg->state |= RF62X_MSG_WAIT_ANSW;
                     if (msg->confirmation_flag)
-                        msg->state |= SMART_MSG_WAIT_CONFIRMATION;
+                        msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
 
                     parser->output_msg_buffer[parser->output_msg_index].data_pos = 0;
 
@@ -1264,20 +1278,20 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 
                 // Таймер готовности сообщения к отправке
                 msg->_sending_time = clock() * (1000.0 /CLOCKS_PER_SEC);
-                // TODO надо ли возвращать именно SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION
+                // TODO надо ли возвращать именно RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION
                 if (msg->confirmation_flag)
                 {
                     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
+                    return RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
                 }
-                else if (msg->state & SMART_MSG_ENCODED)
+                else if (msg->state & RF62X_MSG_ENCODED)
                 {
                     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_DATA_READY;
+                    return RF62X_PARSER_RETURN_STATUS_DATA_READY;
                 }else
                 {
                     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_DATA;
+                    return RF62X_PARSER_RETURN_STATUS_DATA;
                 }
             }
         }
@@ -1290,20 +1304,20 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
                     msg->data_size)
             {
 
-                if (msg->state & SMART_MSG_WAIT_CONFIRMATION)
+                if (msg->state & RF62X_MSG_WAIT_CONFIRMATION)
                 {
                     if ((clock() * (1000.0 /CLOCKS_PER_SEC) - msg->_sending_time) <
                             msg->_timeout)
                     {
                         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                        return SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
+                        return RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
                     }else
                     {
                         // TODO Нужно ли только в одном месте чистить сообщения
 //                        msg->_timeout_clb(parser->output_msg_buffer[parser->output_msg_index].msg);
-//                        msg->state |= SMART_MSG_TIMEOUT;
+//                        msg->state |= RF62X_MSG_TIMEOUT;
                         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                        return SMART_PARSER_RETURN_STATUS_DATA_TIMEOUT;
+                        return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
                     }
                 }
 
@@ -1315,8 +1329,8 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 //                    {
 //                        parser->output_msg_buffer[parser->output_msg_index].msg->_timeout_clb(
 //                                    parser->output_msg_buffer[parser->output_msg_index].msg);
-//                        parser->output_msg_buffer[parser->output_msg_index].msg->state |= SMART_MSG_TIMEOUT;
-//                        return SMART_PARSER_RETURN_STATUS_DATA_TIMEOUT;
+//                        parser->output_msg_buffer[parser->output_msg_index].msg->state |= RF62X_MSG_TIMEOUT;
+//                        return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
 //                    }
 //                }
 
@@ -1500,15 +1514,15 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 
                 // Return DATA packet flag
                 if (msg->confirmation_flag)
-                    msg->state |= SMART_MSG_WAIT_CONFIRMATION;
+                    msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
 
                 // Если сообщение полностью закодировано, то добавить соответствующие флаги
                 if (parser->output_msg_buffer[parser->output_msg_index].data_pos >=
                         (uint32_t)(msg->data_size))
                 {
-                    msg->state = SMART_MSG_ENCODED;
+                    msg->state = RF62X_MSG_ENCODED;
                     if (msg->wait_answ_flag)
-                        msg->state |= SMART_MSG_WAIT_ANSW;
+                        msg->state |= RF62X_MSG_WAIT_ANSW;
 
                     parser->output_msg_buffer[parser->output_msg_index].data_pos = 0;
 
@@ -1516,39 +1530,39 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 
                 // Таймер готовности сообщения к отправке
                 msg->_sending_time = clock() * (1000.0 /CLOCKS_PER_SEC);
-                // TODO надо ли возвращать именно SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION
+                // TODO надо ли возвращать именно RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION
                 if (msg->confirmation_flag)
                 {
                     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
+                    return RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
                 }
-                else if (msg->state & SMART_MSG_ENCODED)
+                else if (msg->state & RF62X_MSG_ENCODED)
                 {
                     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_DATA_READY;
+                    return RF62X_PARSER_RETURN_STATUS_DATA_READY;
                 }else
                 {
                     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_DATA;
+                    return RF62X_PARSER_RETURN_STATUS_DATA;
                 }
             }
             else if (parser->output_msg_buffer[parser->output_msg_index].data_pos >=
                         (uint32_t)(msg->data_size))
             {
-                if (msg->state & SMART_MSG_WAIT_CONFIRMATION)
+                if (msg->state & RF62X_MSG_WAIT_CONFIRMATION)
                 {
                     if ((clock() * (1000.0 /CLOCKS_PER_SEC) - msg->_sending_time) <
                             msg->_timeout)
                     {
                         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                        return SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
+                        return RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
                     }else
                     {
                         // TODO Нужно ли только в одном месте чистить сообщения
 //                        msg->_timeout_clb(parser->output_msg_buffer[parser->output_msg_index].msg);
-//                        msg->state |= SMART_MSG_TIMEOUT;
+//                        msg->state |= RF62X_MSG_TIMEOUT;
                         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                        return SMART_PARSER_RETURN_STATUS_DATA_TIMEOUT;
+                        return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
                     }
                 }
 
@@ -1560,32 +1574,32 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 //                    {
 //                        parser->output_msg_buffer[parser->output_msg_index].msg->_timeout_clb(
 //                                    parser->output_msg_buffer[parser->output_msg_index].msg);
-//                        parser->output_msg_buffer[parser->output_msg_index].msg->state |= SMART_MSG_TIMEOUT;
-//                        return SMART_PARSER_RETURN_STATUS_DATA_TIMEOUT;
+//                        parser->output_msg_buffer[parser->output_msg_index].msg->state |= RF62X_MSG_TIMEOUT;
+//                        return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
 //                    }
 //                }
 
                 // Return DATA packet flag
                 if (msg->confirmation_flag)
-                    msg->state |= SMART_MSG_WAIT_CONFIRMATION;
+                    msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
 
                 // Если сообщение полностью закодировано, то добавить соответствующие флаги
-                msg->state = SMART_MSG_ENCODED;
+                msg->state = RF62X_MSG_ENCODED;
                 if (msg->wait_answ_flag)
-                    msg->state |= SMART_MSG_WAIT_ANSW;
+                    msg->state |= RF62X_MSG_WAIT_ANSW;
 
                 // Таймер готовности сообщения к отправке
                 msg->_sending_time = clock() * (1000.0 /CLOCKS_PER_SEC);
-                // TODO надо ли возвращать именно SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION
+                // TODO надо ли возвращать именно RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION
                 if (msg->confirmation_flag)
                 {
                     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
+                    return RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
                 }
-                else if (msg->state & SMART_MSG_ENCODED)
+                else if (msg->state & RF62X_MSG_ENCODED)
                 {
                     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-                    return SMART_PARSER_RETURN_STATUS_DATA_READY;
+                    return RF62X_PARSER_RETURN_STATUS_DATA_READY;
                 }
             }
         }
@@ -1593,40 +1607,40 @@ int32_t smart_parser_encode_msg(smart_parser_t *parser, uint8_t *packet_data, ui
 
         // Return DATA_READY information
         packet_size = 0;
-    }else if (msg->state & SMART_MSG_WAIT_CONFIRMATION)
+    }else if (msg->state & RF62X_MSG_WAIT_CONFIRMATION)
     {
         if ((clock() * (1000.0 /CLOCKS_PER_SEC) - msg->_sending_time) <
                 msg->_timeout)
         {
             pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-            return SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
+            return RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION;
         }else
         {
             // TODO Нужно ли только в одном месте чистить сообщения
             //msg->_timeout_clb(parser->output_msg_buffer[parser->output_msg_index].msg);
-            //msg->state |= SMART_MSG_TIMEOUT;
+            //msg->state |= RF62X_MSG_TIMEOUT;
             pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-            return SMART_PARSER_RETURN_STATUS_DATA_TIMEOUT;
+            return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
         }
     }
-    else if (msg->state & SMART_MSG_TIMEOUT)
+    else if (msg->state & RF62X_MSG_TIMEOUT)
     {
         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-        return SMART_PARSER_RETURN_STATUS_NO_DATA;
-    }else if (msg->state & SMART_MSG_ENCODED &&
-              msg->state & SMART_MSG_WAIT_ANSW)
+        return RF62X_PARSER_RETURN_STATUS_NO_DATA;
+    }else if (msg->state & RF62X_MSG_ENCODED &&
+              msg->state & RF62X_MSG_WAIT_ANSW)
     {
         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-        return SMART_PARSER_RETURN_STATUS_NO_DATA;
+        return RF62X_PARSER_RETURN_STATUS_NO_DATA;
     }
-    else if (msg->state & SMART_MSG_ENCODED)
+    else if (msg->state & RF62X_MSG_ENCODED)
     {
         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
         *packet_size = 0;
-        return SMART_PARSER_RETURN_STATUS_DATA_READY;
+        return RF62X_PARSER_RETURN_STATUS_DATA_READY;
     }
     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-    return SMART_PARSER_RETURN_STATUS_NO_DATA;
+    return RF62X_PARSER_RETURN_STATUS_NO_DATA;
 
 }
 
@@ -1692,7 +1706,7 @@ int clock_gettime(int X, struct timespec *tv)
 }
 #endif
 
-smart_msg_t* smart_parser_get_msg(smart_parser_t *parser, int32_t timeout)
+RF62X_msg_t* RF62X_parser_get_msg(RF62X_parser_t *parser, int32_t timeout)
 {
 
     const int lock_rv = pthread_mutex_lock(&parser->input_msg_buff_mutex);
@@ -1702,14 +1716,14 @@ smart_msg_t* smart_parser_get_msg(smart_parser_t *parser, int32_t timeout)
         return FALSE;
     }
 
-    for (int i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+    for (int i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
     {
-//        parser->input_msg_index = (parser->input_msg_index + 1) % SMART_PARSER_INPUT_BUFFER_QUEUE;
-        smart_msg_t* input_msg = parser->input_msg_buffer[i].msg;
+//        parser->input_msg_index = (parser->input_msg_index + 1) % RF62X_PARSER_INPUT_BUFFER_QUEUE;
+        RF62X_msg_t* input_msg = parser->input_msg_buffer[i].msg;
 
-        if (input_msg->state & SMART_MSG_WAIT_READING)
+        if (input_msg->state & RF62X_MSG_WAIT_READING)
         {
-            smart_msg_t* return_msg = smart_create_rqst_msg(
+            RF62X_msg_t* return_msg = RF62X_create_rqst_msg(
                         input_msg->cmd_name, input_msg->data, input_msg->data_size, input_msg->type,
                         input_msg->check_crc_flag, input_msg->confirmation_flag, TRUE,
                         0,
@@ -1717,8 +1731,8 @@ smart_msg_t* smart_parser_get_msg(smart_parser_t *parser, int32_t timeout)
 
             return_msg->_uid = input_msg->_uid;
             // Reset data ready flag
-            input_msg->state ^= SMART_MSG_WAIT_READING;
-            input_msg->state |= SMART_MSG_READ;
+            input_msg->state ^= RF62X_MSG_WAIT_READING;
+            input_msg->state |= RF62X_MSG_READ;
 
             parser->input_data_cond_var_flag = FALSE;
 
@@ -1784,14 +1798,14 @@ smart_msg_t* smart_parser_get_msg(smart_parser_t *parser, int32_t timeout)
         return FALSE;
     }
 
-    for (int i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+    for (int i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
     {
-//        parser->input_msg_index = (parser->input_msg_index + 1) % SMART_PARSER_INPUT_BUFFER_QUEUE;
-        smart_msg_t* input_msg = parser->input_msg_buffer[i].msg;
+//        parser->input_msg_index = (parser->input_msg_index + 1) % RF62X_PARSER_INPUT_BUFFER_QUEUE;
+        RF62X_msg_t* input_msg = parser->input_msg_buffer[i].msg;
 
-        if (input_msg->state & SMART_MSG_WAIT_READING)
+        if (input_msg->state & RF62X_MSG_WAIT_READING)
         {
-            smart_msg_t* return_msg = smart_create_rqst_msg(
+            RF62X_msg_t* return_msg = RF62X_create_rqst_msg(
                         input_msg->cmd_name, input_msg->data, input_msg->data_size, input_msg->type,
                         input_msg->check_crc_flag, input_msg->confirmation_flag, TRUE,
                         0,
@@ -1799,8 +1813,8 @@ smart_msg_t* smart_parser_get_msg(smart_parser_t *parser, int32_t timeout)
 
             return_msg->_uid = input_msg->_uid;
             // Reset data ready flag
-            input_msg->state ^= SMART_MSG_WAIT_READING;
-            input_msg->state |= SMART_MSG_READ;
+            input_msg->state ^= RF62X_MSG_WAIT_READING;
+            input_msg->state |= RF62X_MSG_READ;
 
             parser->input_data_cond_var_flag = FALSE;
 
@@ -1816,7 +1830,7 @@ smart_msg_t* smart_parser_get_msg(smart_parser_t *parser, int32_t timeout)
     return NULL;
 }
 
-uint8_t smart_parser_cleanup(smart_parser_t *parser)
+uint8_t RF62X_parser_cleanup(RF62X_parser_t *parser)
 {
 #ifdef _WIN32
     if (parser->output_msg_buff_mutex != NULL)
@@ -1825,16 +1839,16 @@ uint8_t smart_parser_cleanup(smart_parser_t *parser)
         pthread_mutex_lock(&parser->output_msg_buff_mutex);
         if (parser->output_msg_buffer != NULL)
         {
-            for(int i = 0; i < SMART_PARSER_OUTPUT_BUFFER_QUEUE; i++)
+            for(int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
             {
                 if (parser->output_msg_buffer[i].msg != NULL)
                 {
-                    if (parser->output_msg_buffer[i].msg->state & SMART_MSG_ANSWERED &&
+                    if (parser->output_msg_buffer[i].msg->state & RF62X_MSG_ANSWERED &&
                             parser->output_msg_buffer[i].msg->_free_clb != NULL)
                     {
                         parser->output_msg_buffer[i].msg->_free_clb(parser->output_msg_buffer[i].msg);
                     }
-                    smart_cleanup_msg(parser->output_msg_buffer[i].msg);
+                    RF62X_cleanup_msg(parser->output_msg_buffer[i].msg);
                     free(parser->output_msg_buffer[i].msg);
                     parser->output_msg_buffer[i].msg = NULL;
                 }
@@ -1854,11 +1868,11 @@ uint8_t smart_parser_cleanup(smart_parser_t *parser)
         pthread_mutex_lock(&parser->input_msg_buff_mutex);
         if (parser->input_msg_buffer != NULL)
         {
-            for(int i = 0; i < SMART_PARSER_INPUT_BUFFER_QUEUE; i++)
+            for(int i = 0; i < RF62X_PARSER_INPUT_BUFFER_QUEUE; i++)
             {
                 if (parser->input_msg_buffer[i].msg != NULL)
                 {
-                    smart_cleanup_msg(parser->input_msg_buffer[i].msg);
+                    RF62X_cleanup_msg(parser->input_msg_buffer[i].msg);
                     free(parser->input_msg_buffer[i].msg);
                     parser->input_msg_buffer[i].msg = NULL;
                 }
@@ -1875,12 +1889,16 @@ uint8_t smart_parser_cleanup(smart_parser_t *parser)
 #ifdef _WIN32
     if (parser->input_data_cond_var_mutex)
         pthread_mutex_destroy(&parser->input_data_cond_var_mutex);
+    if (parser->input_wait_confirm_var_mutex)
+        pthread_mutex_destroy(&parser->input_wait_confirm_var_mutex);
     if (parser->input_msg_buff_mutex)
         pthread_mutex_destroy(&parser->input_msg_buff_mutex);
     if (parser->output_msg_buff_mutex)
         pthread_mutex_destroy(&parser->output_msg_buff_mutex);
+
 #else
     pthread_mutex_destroy(&parser->input_data_cond_var_mutex);
+    pthread_mutex_destroy(&parser->input_wait_confirm_var_mutex);
     pthread_mutex_destroy(&parser->input_msg_buff_mutex);
     pthread_mutex_destroy(&parser->output_msg_buff_mutex);
 #endif

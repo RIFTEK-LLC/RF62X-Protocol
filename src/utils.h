@@ -1,5 +1,5 @@
-#ifndef SMARTUTILS_H
-#define SMARTUTILS_H
+#ifndef UTILS_H
+#define UTILS_H
 
 /*==============================================================================
  * CONVERT UTILS
@@ -133,8 +133,8 @@ void error_clock_gettime(const int gettime_rv);
 /*==============================================================================
  * TIME UTILS
  *
- * 1) From STRING to UINT16, UINT32
- * 2)
+ * 1. int get_time_of_day(struct timeval *tv, struct timezone *tz) - This function
+ *    can get the time as well as a timezone.
  */
 
 #if defined(_WIN32) && !defined(_TIMEZONE_DEFINED)
@@ -146,4 +146,4 @@ struct timezone {
 #endif
 int get_time_of_day(struct timeval *tv, struct timezone *tz);
 
-#endif // SMARTUTILS_H
+#endif // UTILS_H

@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.13)
 ## EXECUTABLE-PROJECT
 ## name and version
 ###############################################################################
-project(TestReciever LANGUAGES C)
+project(TestReceiver LANGUAGES C)
 
 
 

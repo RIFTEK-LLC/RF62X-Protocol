@@ -1,7 +1,7 @@
-#ifndef SMARTPARSER_H
-#define SMARTPARSER_H
+#ifndef RF62XPARSER_H
+#define RF62XPARSER_H
 
-#include "smartmsg.h"
+#include "RF62Xmsg.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -10,70 +10,70 @@
 #include "pthread.h"
 
 // Default params
-#define SMART_PARSER_DEFAULT_MAXIMUM_PACKET_SIZE 1024	///< Default maximum paket size
-#define SMART_PARSER_DEFAULT_MAXIMUM_DATA_SIZE 6220800	///< Default maximum data size
-#define SMART_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT 50    ///< Default confirmation timeout
+#define RF62X_PARSER_DEFAULT_MAXIMUM_PACKET_SIZE 1024	///< Default maximum paket size
+#define RF62X_PARSER_DEFAULT_MAXIMUM_DATA_SIZE 6220800	///< Default maximum data size
+#define RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT 5    ///< Default confirmation timeout
 
-#define SMART_PARSER_MAJOR_PROTOCOL_VERSION 1			///< Major version of smart protocol
-#define SMART_PARSER_MINOR_PROTOCOL_VERSION 4			///< Monir version of smart protocol
-#define SMART_PARSER_PATCH_PROTOCOL_VERSION 2			///< Patch version of smart protocol
-#define SMART_PARSER_INPUT_BUFFER_QUEUE 10				///< Num logic ports
-#define SMART_PARSER_OUTPUT_BUFFER_QUEUE 10
-#define SMART_PARSER_NUM_LOGIC_PORTS 256				///< Num logic ports
+#define RF62X_PARSER_MAJOR_PROTOCOL_VERSION 1			///< Major version of RF62X protocol
+#define RF62X_PARSER_MINOR_PROTOCOL_VERSION 4			///< Monir version of RF62X protocol
+#define RF62X_PARSER_PATCH_PROTOCOL_VERSION 2			///< Patch version of RF62X protocol
+#define RF62X_PARSER_INPUT_BUFFER_QUEUE 10				///< Num logic ports
+#define RF62X_PARSER_OUTPUT_BUFFER_QUEUE 10
+#define RF62X_PARSER_NUM_LOGIC_PORTS 256				///< Num logic ports
 
 // Return statuses
-#define SMART_PARSER_RETURN_STATUS_NO_DATA 0
-#define SMART_PARSER_RETURN_STATUS_DATA_READY 1
-#define SMART_PARSER_RETURN_STATUS_LOST_DATA_DETECTED 2
-#define SMART_PARSER_RETURN_STATUS_DATA 3
-#define SMART_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION 4
-#define SMART_PARSER_RETURN_STATUS_LOST_DATA_REQUEST 5
-#define SMART_PARSER_RETURN_STATUS_DATA_CONFIRMATION 6
-#define SMART_PARSER_RETURN_STATUS_PACKET_ERROR -1
-#define SMART_PARSER_RETURN_STATUS_PARAMS_ERROR -2
-#define SMART_PARSER_RETURN_STATUS_INCORRECT_PROTOCOL_VERSION -3
-#define SMART_PARSER_RETURN_STATUS_NO_PERMISSION -4
-#define SMART_PARSER_RETURN_STATUS_DATA_TIMEOUT -5
-#define SMART_PARSER_RETURN_STATUS_DATA_ERROR -6
-#define SMART_PARSER_RETURN_STATUS_NO_FREE_BUFFER -7
+#define RF62X_PARSER_RETURN_STATUS_NO_DATA 0
+#define RF62X_PARSER_RETURN_STATUS_DATA_READY 1
+#define RF62X_PARSER_RETURN_STATUS_LOST_DATA_DETECTED 2
+#define RF62X_PARSER_RETURN_STATUS_DATA 3
+#define RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION 4
+#define RF62X_PARSER_RETURN_STATUS_LOST_DATA_REQUEST 5
+#define RF62X_PARSER_RETURN_STATUS_DATA_CONFIRMATION 6
+#define RF62X_PARSER_RETURN_STATUS_PACKET_ERROR -1
+#define RF62X_PARSER_RETURN_STATUS_PARAMS_ERROR -2
+#define RF62X_PARSER_RETURN_STATUS_INCORRECT_PROTOCOL_VERSION -3
+#define RF62X_PARSER_RETURN_STATUS_NO_PERMISSION -4
+#define RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT -5
+#define RF62X_PARSER_RETURN_STATUS_DATA_ERROR -6
+#define RF62X_PARSER_RETURN_STATUS_NO_FREE_BUFFER -7
 
 
 typedef enum{
-    SMART_MSG_EMPTY = 0, // Empty msg
+    RF62X_MSG_EMPTY = 0, // Empty msg
 
-    SMART_MSG_WAIT_DECODING = 1,
-    SMART_MSG_WAIT_ENCODING = 2,
-    SMART_MSG_WAIT_CONFIRMATION = 4,
-    SMART_MSG_WAIT_ANSW = 8,
-    SMART_MSG_WAIT_READING = 16,
+    RF62X_MSG_WAIT_DECODING = 1,
+    RF62X_MSG_WAIT_ENCODING = 2,
+    RF62X_MSG_WAIT_CONFIRMATION = 4,
+    RF62X_MSG_WAIT_ANSW = 8,
+    RF62X_MSG_WAIT_READING = 16,
 
-    SMART_MSG_TIMEOUT = 32,
+    RF62X_MSG_TIMEOUT = 32,
 
-    SMART_MSG_DECODED = 64,
-    SMART_MSG_ENCODED = 128,
-    SMART_MSG_CONFIRMED = 256,
-    SMART_MSG_ANSWERED = 512,
-    SMART_MSG_READ = 1024
-}SMART_MSG_STATE;
+    RF62X_MSG_DECODED = 64,
+    RF62X_MSG_ENCODED = 128,
+    RF62X_MSG_CONFIRMED = 256,
+    RF62X_MSG_ANSWERED = 512,
+    RF62X_MSG_READ = 1024
+}RF62X_MSG_STATE;
 
 
 /**
  * @brief Structure for output data.
  */
 typedef struct {
-    smart_msg_t* msg;         ///< Pointer to buffer for output data
+    RF62X_msg_t* msg;         ///< Pointer to buffer for output data
     uint32_t data_pos;         ///< Current position of the data to send in the packet
-} smart_parser_output_msg_t;
+} RF62X_parser_output_msg_t;
 
 /**
  * @brief Structure for output data.
  */
 typedef struct {
-    smart_msg_t* msg;         ///< Pointer to buffer for output data
+    RF62X_msg_t* msg;         ///< Pointer to buffer for output data
     uint8_t* mask;             ///< Pointer to mask of input data (A mask is required to account for the receipt of data)
     uint32_t received_size;    ///< Current data size of input data
     uint32_t data_pos;         ///< Current position of the data to send in the packet
-} smart_parser_input_msg_t;
+} RF62X_parser_input_msg_t;
 
 /**
  * @brief Structure for output data.
@@ -84,7 +84,7 @@ typedef struct {
     uint32_t data_size;         ///< Output data size
     uint32_t data_id;           ///< Data ID (Automatically assigned to new data)
     uint8_t is_data_confirmed;	///< Data receiver acknowledgment flag
-} smart_parser_output_data_t;
+} RF62X_parser_output_data_t;
 
 // Input data structure
 typedef struct {
@@ -96,22 +96,22 @@ typedef struct {
     uint32_t msg_uid;           ///< Data ID of received data
     uint32_t uid;               ///< Data ID of received data
     char* cmd_name;
-} smart_parser_input_data;
+} RF62X_parser_input_data;
 
 typedef struct {
     ///< Buffer of output data. Each element has 2 buffers (double buffering).
-    smart_parser_output_msg_t* output_msg_buffer;
+    RF62X_parser_output_msg_t* output_msg_buffer;
     ///< Index of current output data in buffer for each logic port.
     uint32_t output_msg_index;
 
     ///< Buffer of output data. Each element has 2 buffers (double buffering).
-    smart_parser_input_msg_t* input_msg_buffer;
+    RF62X_parser_input_msg_t* input_msg_buffer;
     ///< Index of current output data in buffer for each logic port.
     uint32_t input_msg_index;
 
 
     ///< Buffer of output data. Each element has 2 buffers (double buffering).
-    smart_parser_output_data_t* output_data;
+    RF62X_parser_output_data_t* output_data;
     pthread_mutex_t output_msg_buff_mutex;
     ///< Index of current output data in buffer for each logic port.
     uint32_t output_data_index;
@@ -120,8 +120,8 @@ typedef struct {
     ///< Data ID of current output data.
     char output_data_cmd_name[256];
 
-    ///< Buffer for input data. Each element has SMART_PARSER_INPUT_BUFFER_QUEUE buffers (double buffering).
-    smart_parser_input_data* input_data;
+    ///< Buffer for input data. Each element has RF62X_PARSER_INPUT_BUFFER_QUEUE buffers (double buffering).
+    RF62X_parser_input_data* input_data;
     ///< Index of current input data in buffer for each logic port.
     uint32_t input_data_index;
 
@@ -133,8 +133,11 @@ typedef struct {
     ///< Mutexes for conditional variabes.
     pthread_mutex_t input_data_cond_var_mutex;
     pthread_cond_t input_data_cond_var;
+    pthread_mutex_t input_wait_confirm_var_mutex;
+    pthread_cond_t input_wait_confirm_cond_var;
     ///< Flags for conditional variabes.
     uint8_t input_data_cond_var_flag;
+    uint8_t input_wait_confirm_cond_var_flag;
     pthread_mutex_t instance_mutex;
 
     ///< Maximum input and output data size. In accordance with this value, memory is allocated for data buffers. Default = 1024 bytes.
@@ -173,21 +176,21 @@ typedef struct {
     ///< Buffer for DATA_CONFIRMATION packet.
     uint8_t* data_confirmation_packet;
 
-    char* logic_port_name_list[SMART_PARSER_NUM_LOGIC_PORTS];
-} smart_parser_t;
+    char* logic_port_name_list[RF62X_PARSER_NUM_LOGIC_PORTS];
+} RF62X_parser_t;
 
 /**
- * @brief smart_parser_init - Method to init communication parser.
+ * @brief RF62X_parser_init - Method to init communication parser.
  * @param init_string Initialization string.
  * @return TRUE in case of successful initialization or FALSE.
  */
-uint8_t smart_parser_init(smart_parser_t* parser, char* init_string);
+uint8_t RF62X_parser_init(RF62X_parser_t* parser, char* init_string);
 
 /**
- * @brief smart_parser_cleanup - free allocate memory
- * @return TRUE if smart parser memory free or FALSE.
+ * @brief RF62X_parser_cleanup - free allocate memory
+ * @return TRUE if RF62X parser memory free or FALSE.
  */
-uint8_t smart_parser_cleanup(smart_parser_t* parser);
+uint8_t RF62X_parser_cleanup(RF62X_parser_t* parser);
 
 /**
  * @brief Method to add new output data to encode.
@@ -199,7 +202,7 @@ uint8_t smart_parser_cleanup(smart_parser_t* parser);
  *         when data_size == 0 or data_size > maximum data size
  *         setted in Init(...) method.
  */
-uint8_t smart_parser_add_msg(smart_parser_t* parser, smart_msg_t* msg);
+uint8_t RF62X_parser_add_msg(RF62X_parser_t* parser, RF62X_msg_t* msg);
 
 /**
  * @brief Method to encode DATA packet.
@@ -214,7 +217,7 @@ uint8_t smart_parser_add_msg(smart_parser_t* parser, smart_msg_t* msg);
  *         (1) if full data was encoded. The next time the method is called, encoding will begin from the beginning;
  *         (3) DATA packet was encoded.
  */
-int32_t smart_parser_encode_msg(smart_parser_t* parser,
+int32_t RF62X_parser_encode_msg(RF62X_parser_t* parser,
     uint8_t* packet_data,
     uint16_t* packet_size);
 
@@ -233,7 +236,7 @@ int32_t smart_parser_encode_msg(smart_parser_t* parser,
  *              send via EncodeLostDataPacket(...) method;
  *         (6)  if the packet DATA_CONFIRMATION was successfully processed.
  */
-int32_t smart_parser_decode_msg(smart_parser_t* parser,
+int32_t RF62X_parser_decode_msg(RF62X_parser_t* parser,
         uint8_t* packet_data,
         uint16_t packet_size);
 
@@ -252,7 +255,7 @@ int32_t smart_parser_decode_msg(smart_parser_t* parser,
  *                (>0) We are waiting for the data indicated time. Time is indicated in milliseconds.
  * @return TRUE if there is new data and it was successfully copied or FALSE.
  */
-smart_msg_t* smart_parser_get_msg(smart_parser_t* parser, int32_t timeout);
+RF62X_msg_t* RF62X_parser_get_msg(RF62X_parser_t* parser, int32_t timeout);
 
 
 /**
@@ -262,7 +265,7 @@ smart_msg_t* smart_parser_get_msg(smart_parser_t* parser, int32_t timeout);
  * @param packetData Pointer to buffer to copy packet data. Should have minimum size of 19 bytes.
  * @param packetSize Output size of generated packet. Always has value of 19 bytes.
  */
-void smart_parser_get_lost_data_request_packet(smart_parser_t* parser,
+void RF62X_parser_get_lost_data_request_packet(RF62X_parser_t* parser,
         uint8_t* packet_data,
         uint16_t* packet_size);
 
@@ -273,7 +276,7 @@ void smart_parser_get_lost_data_request_packet(smart_parser_t* parser,
  * @param packetData Pointer to buffer to copy packet data. Should have minimum size of 19 bytes.
  * @param packetSize Output size of generated packet. Always has value of 19 bytes.
  */
-void smart_parser_get_msg_confirmation_packet(smart_parser_t* parser,
+void RF62X_parser_get_msg_confirmation_packet(RF62X_parser_t* parser,
         uint8_t* packet_data,
         uint16_t* packet_size);
 
@@ -286,10 +289,10 @@ void smart_parser_get_msg_confirmation_packet(smart_parser_t* parser,
  * @param logicPort Logic port of encoded data.
  * @return (0) if there are no data for encoding or return (3) if DATA packet was encoded.
  */
-int32_t smart_parser_encode_lost_data_packet(smart_parser_t* parser,
+int32_t RF62X_parser_encode_lost_data_packet(RF62X_parser_t* parser,
     uint8_t* packet_data,
     uint16_t* packet_size);
 
-uint8_t smart_parser_opt_set(smart_parser_t* parser, char *opt_name, char *val);
+uint8_t RF62X_parser_opt_set(RF62X_parser_t* parser, char *opt_name, char *val);
 
-#endif // SMARTPARSER_H
+#endif // RF62XPARSER_H

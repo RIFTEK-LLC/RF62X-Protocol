@@ -1,11 +1,11 @@
-#include "smartmsg.h"
+#include "RF62Xmsg.h"
 #include <string.h>
 #include <stdlib.h>
 
 #include <time.h>
 
-#include "smartparser.h"
-#include "smartchannel.h"
+#include "RF62Xparser.h"
+#include "RF62Xchannel.h"
 
 #ifndef _WIN32
 #define INVALID_SOCKET          (-1)
@@ -15,14 +15,14 @@
 #endif
 
 int msg_count = 0;
-smart_msg_t *smart_create_rqst_msg(char *cmd_name, char *data, uint32_t data_size, char* data_type,
+RF62X_msg_t *RF62X_create_rqst_msg(char *cmd_name, char *data, uint32_t data_size, char* data_type,
                                    uint8_t is_check_crc, uint8_t is_confirmation, uint8_t is_one_answ,
                                    uint32_t timeout,
-                                   smart_answ_callback answ_clb,
-                                   smart_timeout_callback timeout_clb,
-                                   smart_free_callback free_clb)
+                                   RF62X_answ_callback answ_clb,
+                                   RF62X_timeout_callback timeout_clb,
+                                   RF62X_free_callback free_clb)
 {
-    smart_msg_t* rqst_msg = calloc(1, sizeof (smart_msg_t));
+    RF62X_msg_t* rqst_msg = calloc(1, sizeof (RF62X_msg_t));
 
     strcpy(rqst_msg->type, "rqst");
     strcpy(rqst_msg->cmd_name, cmd_name);
@@ -50,21 +50,21 @@ smart_msg_t *smart_create_rqst_msg(char *cmd_name, char *data, uint32_t data_siz
     rqst_msg->_sending_time = 0;
     rqst_msg->_timeout = timeout;
 
-    rqst_msg->state = SMART_MSG_WAIT_ENCODING;
+    rqst_msg->state = RF62X_MSG_WAIT_ENCODING;
 
     rqst_msg->result = NULL;
 
     return rqst_msg;
 }
 
-smart_msg_t *smart_create_answ_msg(smart_msg_t* rqst_msg, char *data, uint32_t data_size, char* data_type,
+RF62X_msg_t *RF62X_create_answ_msg(RF62X_msg_t* rqst_msg, char *data, uint32_t data_size, char* data_type,
                                    uint8_t is_check_crc, uint8_t is_confirmation, uint8_t is_one_answ,
                                    uint32_t timeout,
-                                   smart_answ_callback answ_clb,
-                                   smart_timeout_callback timeout_clb,
-                                   smart_free_callback free_clb)
+                                   RF62X_answ_callback answ_clb,
+                                   RF62X_timeout_callback timeout_clb,
+                                   RF62X_free_callback free_clb)
 {
-    smart_msg_t* answ_msg = calloc(1, sizeof (smart_msg_t));
+    RF62X_msg_t* answ_msg = calloc(1, sizeof (RF62X_msg_t));
 
     strcpy(answ_msg->type, "answ");
     strcpy(answ_msg->cmd_name, rqst_msg->cmd_name);
@@ -92,14 +92,14 @@ smart_msg_t *smart_create_answ_msg(smart_msg_t* rqst_msg, char *data, uint32_t d
     answ_msg->_sending_time = 0;
     answ_msg->_timeout = timeout;
 
-    answ_msg->state = SMART_MSG_WAIT_ENCODING;
+    answ_msg->state = RF62X_MSG_WAIT_ENCODING;
 
     answ_msg->result = NULL;
 
     return answ_msg;
 }
 
-void smart_cleanup_msg(smart_msg_t *msg)
+void RF62X_cleanup_msg(RF62X_msg_t *msg)
 {
     if (msg != NULL)
     {
@@ -130,6 +130,6 @@ void smart_cleanup_msg(smart_msg_t *msg)
 
         msg->result = NULL;
 
-        msg->state = SMART_MSG_EMPTY;
+        msg->state = RF62X_MSG_EMPTY;
     }
 }
