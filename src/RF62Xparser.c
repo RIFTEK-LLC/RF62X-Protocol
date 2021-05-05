@@ -576,6 +576,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 if (input_msg->_msg_uid != 0)
                     input_msg->confirmation_flag = TRUE;
                 input_msg->_uid = logic_port_uid;
+                input_msg->_device_id = src_device_uid;
                 input_msg->state = RF62X_MSG_WAIT_DECODING;
 
                 memcpy(input_msg->cmd_name, (char*)cmd_name, strlen(cmd_name) + 1);
@@ -681,7 +682,14 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     input_msg->state |= RF62X_MSG_DECODED;
 
                     if (input_msg->confirmation_flag && msg_uid != 0)
+                    {
                         input_msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
+                        input_msg->_msg_uid = msg_uid;
+                        result = RF62X_PARSER_RETURN_STATUS_DATA_CONFIRMATION;
+                    }else
+                    {
+                        result = RF62X_PARSER_RETURN_STATUS_DATA_READY;
+                    }
 
 //                    memset(parser->input_msg_buffer[parser->input_msg_index].mask, 0, input_msg->data_size);
                     free(parser->input_msg_buffer[parser->input_msg_index].mask);
@@ -698,7 +706,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     free(container_type); container_type = NULL;
                     free(data); data = NULL;
                     mpack_tree_destroy(&tree);
-                    return RF62X_PARSER_RETURN_STATUS_DATA_READY;
+                    return result;
                 }
                 else
                 {
@@ -718,8 +726,17 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 free(container_type); container_type = NULL;
                 free(data); data = NULL;
                 mpack_tree_destroy(&tree);
-                pthread_mutex_unlock(&parser->input_msg_buff_mutex);
-                return result;
+                if (input_msg->confirmation_flag && msg_uid != 0)
+                {
+                    input_msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
+                    input_msg->_msg_uid = msg_uid;
+                    pthread_mutex_unlock(&parser->input_msg_buff_mutex);
+                    return RF62X_PARSER_RETURN_STATUS_DATA_CONFIRMATION;
+                }else
+                {
+                    pthread_mutex_unlock(&parser->input_msg_buff_mutex);
+                    return result;
+                }
             }
 
         }
@@ -761,7 +778,8 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
             RF62X_msg_t* output_msg = parser->output_msg_buffer[ii].msg;
             RF62X_msg_t* input_msg = NULL;
             if ((output_msg->_uid == logic_port_uid) &&
-                    (output_msg->state & RF62X_MSG_WAIT_ANSW))
+                    ((output_msg->state & RF62X_MSG_WAIT_ANSW) ||
+                        (output_msg->state & RF62X_MSG_WAIT_ENCODING)))
             {
                 // find input buffer index and change current data ID
                 uint8_t is_chousen = FALSE;
@@ -812,6 +830,8 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     {
                         // Init new input data atributes
                         input_msg->_msg_uid = msg_uid;
+                        if (input_msg->_msg_uid != 0)
+                            input_msg->confirmation_flag = TRUE;
                         input_msg->_uid = logic_port_uid;
                         input_msg->_device_id = src_device_uid;
                         input_msg->state = RF62X_MSG_WAIT_DECODING;
@@ -1353,6 +1373,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     if (msg->confirmation_flag)
                     {
                         mpack_write_cstr(&writer, "msg_uid");
+                        msg->_msg_uid = test_count++;
                         mpack_write_uint(&writer, msg->_msg_uid);
                     }
 
@@ -1443,7 +1464,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                         if (msg->confirmation_flag)
                         {
                             mpack_write_cstr(&writer, "msg_uid");
-                            msg->_msg_uid = test_count++;//rand() % (UINT64_MAX-1) + 1;
+                            //msg->_msg_uid = test_count++;//rand() % (UINT64_MAX-1) + 1;
                             mpack_write_uint(&writer, msg->_msg_uid);
                         }
 
