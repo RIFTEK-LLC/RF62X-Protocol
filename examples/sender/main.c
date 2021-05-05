@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
     memset(short_data, 1, sizeof (short_data));
 
     // Create long data msg for testing chain mode.
-    char long_data[channel.max_packet_size * 500];
+    char long_data[channel.max_data_size / 2];
     memset(long_data, 2, sizeof (long_data));
 
     int32_t test_mode = 0;
@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
             // data_type - this is the type of packaging of the sent data
             char* data_type                     = "blob";// mpack, json, blob..
             uint8_t is_check_crc                = FALSE; // check crc disabled
-            uint8_t is_confirmation             = FALSE; // confirmation disabled
+            uint8_t is_confirmation             = TRUE; // confirmation disabled
             uint8_t is_one_answ                 = TRUE;  // wait only one answer
             uint32_t waiting_time               = 1000;  // ms
             // callbacks for request
