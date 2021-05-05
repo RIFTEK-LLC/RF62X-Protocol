@@ -56,8 +56,8 @@ char* get_default_config();
  * @return config string.
  */
 char* generate_config_string(
-        uint32_t src_device_uid, char* dst_ip_addr, char* host_ip_addr,
-        uint32_t in_udp_port, uint32_t out_udp_port, uint32_t socket_timeout,
+        uint32_t host_device_uid, char* host_ip_addr, char* dst_ip_addr,
+        uint32_t host_udp_port, uint32_t dst_udp_port, uint32_t socket_timeout,
         uint32_t max_packet_size, uint32_t max_data_size);
 
 
@@ -153,7 +153,9 @@ int main(int argc, char* argv[])
             answer_t* result = RF62X_get_result_to_rqst_msg(&channel, msg, waiting_time);
             if (result != NULL)
             {
-                if (strcmp("HELLO, SENDER!", result->received_data) == 0)
+                char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
+                memcpy(test_answer, result->received_data, result->received_data_size);
+                if (strcmp("HELLO, SENDER!", test_answer) == 0)
                 {
                     // Cleanup test msg
                     RF62X_cleanup_msg(msg);
@@ -181,7 +183,7 @@ int main(int argc, char* argv[])
             // data_type - this is the type of packaging of the sent data
             char* data_type                     = "blob";// mpack, json, blob..
             uint8_t is_check_crc                = FALSE; // check crc disabled
-            uint8_t is_confirmation             = TRUE; // confirmation disabled
+            uint8_t is_confirmation             = FALSE; // confirmation disabled
             uint8_t is_one_answ                 = TRUE;  // wait only one answer
             uint32_t waiting_time               = 1000;  // ms
             // callbacks for request
@@ -213,7 +215,9 @@ int main(int argc, char* argv[])
             answer_t* result = RF62X_get_result_to_rqst_msg(&channel, msg, waiting_time);
             if (result != NULL)
             {
-                if (strcmp("HELLO, SENDER!", result->received_data) == 0)
+                char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
+                memcpy(test_answer, result->received_data, result->received_data_size);
+                if (strcmp("HELLO, SENDER!", test_answer) == 0)
                 {
                     // Cleanup test msg
                     RF62X_cleanup_msg(msg);
@@ -273,7 +277,9 @@ int main(int argc, char* argv[])
             answer_t* result = RF62X_get_result_to_rqst_msg(&channel, msg, waiting_time);
             if (result != NULL)
             {
-                if (strcmp("HELLO, SENDER!", result->received_data) == 0)
+                char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
+                memcpy(test_answer, result->received_data, result->received_data_size);
+                if (strcmp("HELLO, SENDER!", test_answer) == 0)
                 {
                     // Cleanup test msg
                     RF62X_cleanup_msg(msg);
@@ -379,11 +385,11 @@ char* parse_cmd_line(int argc,  char** argv)
 
     enum option_flag
     {
-        SRC_DEVICE_UID = 0,
-        DST_IP_ADDR,
+        HOST_DEVICE_UID = 0,
         HOST_IP_ADDR,
-        IN_UDP_PORT,
-        OUT_UDP_PORT,
+        HOST_UDP_PORT,
+        DST_IP_ADDR,
+        DST_UDP_PORT,
         SOCKET_TIMEOUT,
         MAX_PACKET_SIZE,
         MAX_DATA_SIZE,
@@ -393,25 +399,25 @@ char* parse_cmd_line(int argc,  char** argv)
 
     const struct option long_options[] = {
     {"help",no_argument,NULL,'h'},
-    {"uid",required_argument,NULL,SRC_DEVICE_UID},
-    {"dst",required_argument,NULL,DST_IP_ADDR},
-    {"host",required_argument,NULL,HOST_IP_ADDR},
-    {"in",required_argument,NULL,IN_UDP_PORT},
-    {"out",required_argument,NULL,OUT_UDP_PORT},
-    {"timeout",required_argument,NULL,SOCKET_TIMEOUT},
-    {"ps",required_argument,NULL,MAX_PACKET_SIZE},
-    {"ds",required_argument,NULL,MAX_DATA_SIZE},
+    {"host_device_uid",required_argument,NULL,HOST_DEVICE_UID},
+    {"host_ip_addr",required_argument,NULL,HOST_IP_ADDR},
+    {"dst_ip_addr",required_argument,NULL,DST_IP_ADDR},
+    {"host_udp_port",required_argument,NULL,HOST_UDP_PORT},
+    {"dst_udp_port",required_argument,NULL,DST_UDP_PORT},
+    {"socket_timeout",required_argument,NULL,SOCKET_TIMEOUT},
+    {"max_packet_size",required_argument,NULL,MAX_PACKET_SIZE},
+    {"max_data_size",required_argument,NULL,MAX_DATA_SIZE},
     {NULL,0,NULL,0}
     };
 
     int rez;
     int option_index;
 
-    uint32_t src_device_uid = 2;
-    char* dst_ip_addr = "127.0.0.1";
+    uint32_t host_device_uid = 2;
     char* host_ip_addr = "127.0.0.1";
-    uint32_t in_udp_port = 0;
-    uint32_t out_udp_port = 50020;
+    char* dst_ip_addr = "127.0.0.1";
+    uint32_t host_udp_port = 0;
+    uint32_t dst_udp_port = 50020;
     uint32_t socket_timeout = 100;
     uint32_t max_packet_size = 1024;
     uint32_t max_data_size = 1024 * 1024;
@@ -426,24 +432,24 @@ char* parse_cmd_line(int argc,  char** argv)
             printf(
                 "Help information:\n"
                 "-----------------\n"
-                " --uid <src_device_uid>     Source device ID (\"2\" by default)\n"
-                " --dst <dst_ip_addr>        Destination IP-addr (\"127.0.0.1\" by default)\n"
-                " --host <host_ip_addr>      Host IP-addr (\"127.0.0.1\" by default)\n"
-                " --in <in_udp_port>         Input UDP Port (\"0\" by default)\n"
-                " --out <out_udp_port>       Output UDP Port (\"50020\" by default)\n"
-                " --timeout <socket_timeout> Socket waiting time for data [ms] (\"100\" ms by default)\n"
-                " --ps <max_packet_size>     Maximum UDP packet size [bytes] (\"1024\" bytes by default)\n"
-                " --ds <max_data_size>       Maximum protocol packet size [bytes] (\"1048576\" bytes by default)\n"
+                " --host_device_uid         Source device ID (\"2\" by default)\n"
+                " --host_ip_addr            Host IP-addr (\"127.0.0.1\" by default)\n"
+                " --dst_ip_addr             Destination IP-addr (\"127.0.0.1\" by default)\n"
+                " --host_udp_port           Host UDP Port (\"0\" by default)\n"
+                " --dst_udp_port            Destination UDP Port (\"50020\" by default)\n"
+                " --socket_timeout          Socket waiting time for data [ms] (\"100\" ms by default)\n"
+                " --max_packet_size         Maximum UDP packet size [bytes] (\"1024\" bytes by default)\n"
+                " --max_data_size           Maximum protocol packet size [bytes] (\"1048576\" bytes by default)\n"
                 "\n"
                 "An example command line would look like this:\n"
                 "---------------------------------------------\n"
-                " TestSender --dst 127.0.0.1 --out 50020\n"
+                " TestSender --dst_ip_addr 127.0.0.1 --dst_udp_port 50020\n"
             );
             return NULL;
             break;
         };
-        case SRC_DEVICE_UID: {
-            sscanf(optarg, "%d", &src_device_uid);
+        case HOST_DEVICE_UID: {
+            sscanf(optarg, "%d", &host_device_uid);
             break;
         };
         case DST_IP_ADDR: {
@@ -454,12 +460,12 @@ char* parse_cmd_line(int argc,  char** argv)
             host_ip_addr = optarg;
             break;
         };
-        case IN_UDP_PORT: {
-            sscanf(optarg, "%d", &in_udp_port);
+        case HOST_UDP_PORT: {
+            sscanf(optarg, "%d", &host_udp_port);
             break;
         };
-        case OUT_UDP_PORT: {
-            sscanf(optarg, "%d", &out_udp_port);
+        case DST_UDP_PORT: {
+            sscanf(optarg, "%d", &dst_udp_port);
             break;
         };
         case SOCKET_TIMEOUT: {
@@ -487,71 +493,71 @@ char* parse_cmd_line(int argc,  char** argv)
     if (argc > 1)
     {
         printf("## INPUT SETTINGS ##\n\n"
-               "src_device_uid\t: %d\n"
-               "dst_ip_addr\t: %s\n"
+               "host_device_uid\t: %d\n"
                "host_ip_addr\t: %s\n"
-               "in_udp_port\t: %d\n"
-               "out_udp_port\t: %d\n"
+               "dst_ip_addr\t: %s\n"
+               "host_udp_port\t: %d\n"
+               "dst_udp_port\t: %d\n"
                "socket_timeout\t: %d\n"
                "max_packet_size\t: %d\n"
                "max_data_size\t: %d\n\n",
-               src_device_uid, dst_ip_addr, host_ip_addr, in_udp_port, out_udp_port,
+               host_device_uid, host_ip_addr, dst_ip_addr, host_udp_port, dst_udp_port,
                socket_timeout, max_packet_size, max_data_size);
     }
 
     return generate_config_string(
-                src_device_uid, dst_ip_addr, host_ip_addr,
-                in_udp_port, out_udp_port, socket_timeout,
+                host_device_uid, host_ip_addr, dst_ip_addr,
+                host_udp_port, dst_udp_port, socket_timeout,
                 max_packet_size, max_data_size);
 
 }
 
 char* get_default_config()
 {
-    uint32_t src_device_uid = 2;
-    char* dst_ip_addr = "127.0.0.1";
+    uint32_t host_device_uid = 2;
     char* host_ip_addr = "127.0.0.1";
-    uint32_t in_udp_port = 0;
-    uint32_t out_udp_port = 50020;
+    char* dst_ip_addr = "127.0.0.1";
+    uint32_t host_udp_port = 0;
+    uint32_t dst_udp_port = 50020;
     uint32_t socket_timeout = 100;
     uint32_t max_packet_size = 1024;
     uint32_t max_data_size = 1024 * 1024;
 
     printf("## DEFAULT SETTINGS ##\n\n"
-           "src_device_uid\t: %d\n"
-           "dst_ip_addr\t: %s\n"
+           "host_device_uid\t: %d\n"
            "host_ip_addr\t: %s\n"
-           "in_udp_port\t: %d\n"
-           "out_udp_port\t: %d\n"
+           "dst_ip_addr\t: %s\n"
+           "host_udp_port\t: %d\n"
+           "dst_udp_port\t: %d\n"
            "socket_timeout\t: %d\n"
            "max_packet_size\t: %d\n"
            "max_data_size\t: %d\n\n",
-           src_device_uid, dst_ip_addr, host_ip_addr, in_udp_port, out_udp_port,
+           host_device_uid, host_ip_addr, dst_ip_addr, host_udp_port, dst_udp_port,
            socket_timeout, max_packet_size, max_data_size);
 
     return generate_config_string(
-                src_device_uid, dst_ip_addr, host_ip_addr,
-                in_udp_port, out_udp_port, socket_timeout,
+                host_device_uid, host_ip_addr, dst_ip_addr,
+                host_udp_port, dst_udp_port, socket_timeout,
                 max_packet_size, max_data_size);
 }
 
 char* generate_config_string(
-        uint32_t src_device_uid, char* dst_ip_addr, char* host_ip_addr,
-        uint32_t in_udp_port, uint32_t out_udp_port, uint32_t socket_timeout,
+        uint32_t host_device_uid, char* host_ip_addr, char* dst_ip_addr,
+        uint32_t host_udp_port, uint32_t dst_udp_port, uint32_t socket_timeout,
         uint32_t max_packet_size, uint32_t max_data_size)
 {
     char* config = calloc(1024, sizeof (char));
 
     sprintf(config,
-            "--src_device_uid %d "
-            "--dst_ip_addr %s "
+            "--host_device_uid %d "
             "--host_ip_addr %s "
-            "--in_udp_port %d "
-            "--out_udp_port %d "
+            "--dst_ip_addr %s "
+            "--host_udp_port %d "
+            "--dst_udp_port %d "
             "--socket_timeout %d "
             "--max_packet_size %d "
             "--max_data_size %d",
-            src_device_uid, dst_ip_addr, host_ip_addr, in_udp_port, out_udp_port,
+            host_device_uid, host_ip_addr, dst_ip_addr, host_udp_port, dst_udp_port,
             socket_timeout, max_packet_size, max_data_size);
 
     return config;
