@@ -43,7 +43,7 @@ typedef struct
 
 char *RF62X_channel_version()
 {
-    char* version = "2.0.3";
+    char* version = "2.1.0";
     return version;
 }
 
@@ -74,7 +74,7 @@ void *read_thread_func (void *args) {
         for (int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
         {
             RF62X_msg_t* msg = channel->RF62X_parser.output_msg_buffer[i].msg;
-            if (msg->state & RF62X_MSG_ENCODED && msg->_sending_time != 0)
+            if (msg->state & RF62X_MSG_ENCODED && msg->state & RF62X_MSG_WAIT_ANSW && msg->_sending_time != 0)
             {
                 if ((clock() * (1000.0 /CLOCKS_PER_SEC) - msg->_sending_time) > msg->_timeout &&
                         ((msg->state & RF62X_MSG_TIMEOUT) == FALSE))
@@ -92,7 +92,7 @@ void *read_thread_func (void *args) {
         // Check new data precense.
         if (bytes > 0)
         {
-            if (channel->out_udp_port == 0)
+            if (channel->dst_udp_port == 0)
             {
                 channel->RF62X_sock.output_addr.sin_port = srcSockaddr.sin_port;
                 channel->RF62X_sock.output_addr.sin_addr = srcSockaddr.sin_addr;
@@ -260,29 +260,29 @@ uint8_t RF62X_channel_init(RF62X_channel* channel, char *init_string)
     udp_port_set_host_ip(&channel->RF62X_sock, channel->host_ip_addr);
 
     // Init output net atributes.
-    if (channel->in_udp_port != 0)
+    if (channel->host_udp_port != 0)
     {
-        if (channel->out_udp_port != 0)
+        if (channel->dst_udp_port != 0)
         {
             udp_port_set_dst_ip(&channel->RF62X_sock, channel->dst_ip_addr);
-            channel->RF62X_sock.output_addr.sin_port = htons(channel->out_udp_port);
+            channel->RF62X_sock.output_addr.sin_port = htons(channel->dst_udp_port);
             channel->RF62X_sock.output_addr.sin_family = AF_INET;
         }
 
-        if (!udp_port_open(&channel->RF62X_sock, channel->in_udp_port,
+        if (!udp_port_open(&channel->RF62X_sock, channel->host_udp_port,
                            channel->socket_timeout, FALSE))
         {
             return FALSE;
         }
     }else
     {
-        if (channel->out_udp_port != 0)
+        if (channel->dst_udp_port != 0)
         {
             udp_port_set_dst_ip(&channel->RF62X_sock, channel->dst_ip_addr);
-            channel->RF62X_sock.output_addr.sin_port = htons(channel->out_udp_port);
+            channel->RF62X_sock.output_addr.sin_port = htons(channel->dst_udp_port);
             channel->RF62X_sock.output_addr.sin_family = AF_INET;
 
-            if (!udp_port_open(&channel->RF62X_sock, channel->out_udp_port,
+            if (!udp_port_open(&channel->RF62X_sock, channel->dst_udp_port,
                                channel->socket_timeout, TRUE))
             {
                 return FALSE;
@@ -352,14 +352,14 @@ uint8_t RF62X_channel_opt_set(RF62X_channel* channel, char *opt_name, char *val)
         ip_string_to_uint32(val, &channel->host_ip_addr);
         return TRUE;
     }
-    else if (0 == strcmp(opt_name, "--in_udp_port"))
+    else if (0 == strcmp(opt_name, "--host_udp_port"))
     {
-        string_to_uint16(val, &channel->in_udp_port);
+        string_to_uint16(val, &channel->host_udp_port);
         return TRUE;
     }
-    else if (0 == strcmp(opt_name, "--out_udp_port"))
+    else if (0 == strcmp(opt_name, "--dst_udp_port"))
     {
-        string_to_uint16(val, &channel->out_udp_port);
+        string_to_uint16(val, &channel->dst_udp_port);
         return TRUE;
     }
     else if (0 == strcmp(opt_name, "--socket_timeout"))

@@ -168,9 +168,9 @@ uint8_t RF62X_parser_opt_set(RF62X_parser_t* parser, char *opt_name, char *val)
     {
         string_to_uint32(val, &parser->max_data_size);
     }
-    else if (0 == strcmp(opt_name, "--src_device_uid"))
+    else if (0 == strcmp(opt_name, "--host_device_uid"))
     {
-        string_to_uint32(val, &parser->src_device_uid);
+        string_to_uint32(val, &parser->host_device_uid);
     }
 
     return TRUE;
@@ -336,7 +336,7 @@ RF62X_msg_t* RF62X_parser_get_free_output_msg_buffer(RF62X_parser_t *parser)
 
 uint8_t RF62X_parser_add_msg(RF62X_parser_t *parser, RF62X_msg_t *msg)
 {
-    msg->_device_id = parser->src_device_uid;
+    msg->_device_id = parser->host_device_uid;
     // Check input params.
     if (msg->data_size > parser->max_data_size)
         return FALSE;
@@ -474,7 +474,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
     {
         src_device_uid = mpack_node_uint(mpack_node_map_cstr(root, "src_device_uid"));
 
-        if (src_device_uid == parser->src_device_uid)
+        if (src_device_uid == parser->host_device_uid)
             return result;
     }
 
@@ -1102,7 +1102,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                     // Идентификатор устройства, отправившего сообщения
                     mpack_write_cstr(&writer, "src_device_uid");
-                    mpack_write_uint(&writer, parser->src_device_uid);
+                    mpack_write_uint(&writer, parser->host_device_uid);
 
 
                     // Сообщение
@@ -1204,7 +1204,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                         // Идентификатор устройства, отправившего сообщения
                         mpack_write_cstr(&writer, "src_device_uid");
-                        mpack_write_uint(&writer, parser->src_device_uid);
+                        mpack_write_uint(&writer, parser->host_device_uid);
 
                         // Сообщение
                         mpack_write_cstr(&writer, "msg"); mpack_start_map(&writer, strcmp(msg->container_type, "blob") != 0? 5 : 4);
@@ -1379,7 +1379,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                     // Идентификатор устройства, отправившего сообщения
                     mpack_write_cstr(&writer, "src_device_uid");
-                    mpack_write_uint(&writer, parser->src_device_uid);
+                    mpack_write_uint(&writer, parser->host_device_uid);
 
                     // Сообщение
                     mpack_write_cstr(&writer, "msg"); mpack_start_map(&writer, strcmp(msg->container_type, "blob") != 0? 5 : 4);
@@ -1470,7 +1470,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                         // Идентификатор устройства, отправившего сообщения
                         mpack_write_cstr(&writer, "src_device_uid");
-                        mpack_write_uint(&writer, parser->src_device_uid);
+                        mpack_write_uint(&writer, parser->host_device_uid);
 
 
                         // Сообщение

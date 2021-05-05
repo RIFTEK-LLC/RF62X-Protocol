@@ -18,8 +18,8 @@ typedef struct{
 
     udp_port_t RF62X_sock;
 
-    uint16_t in_udp_port;
-    uint16_t out_udp_port;
+    uint16_t host_udp_port;
+    uint16_t dst_udp_port;
 
     uint32_t socket_timeout;
 
