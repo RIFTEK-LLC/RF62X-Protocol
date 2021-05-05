@@ -465,14 +465,14 @@ uint8_t RF62X_channel_send_msg(RF62X_channel *channel, RF62X_msg_t *msg)
                         channel->RF62X_parser.input_wait_confirm_cond_var_flag = FALSE;
                         pthread_mutex_unlock(&channel->RF62X_parser.input_wait_confirm_var_mutex);
                         pthread_mutex_unlock(&channel->instance_mutex);
-                        return TRUE;
+                        continue;
                     }
                 }else
                 {
                     channel->RF62X_parser.input_wait_confirm_cond_var_flag = FALSE;
                     pthread_mutex_unlock(&channel->RF62X_parser.input_wait_confirm_var_mutex);
                     pthread_mutex_unlock(&channel->instance_mutex);
-                    return TRUE;
+                    continue;
                 }
             }
 //            clock_t goal = RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT + clock() * (1000.0 /CLOCKS_PER_SEC);
