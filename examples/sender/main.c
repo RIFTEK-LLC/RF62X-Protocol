@@ -89,14 +89,6 @@ int main(int argc, char* argv[])
     RF62X_channel_init(&channel, config);
     free(config);
 
-    // Create short data msg for testing payload mode.
-    char short_data[channel.max_packet_size / 2];
-    memset(short_data, 1, sizeof (short_data));
-
-    // Create long data msg for testing chain mode.
-    char long_data[channel.max_data_size / 2];
-    memset(long_data, 2, sizeof (long_data));
-
     int32_t test_mode = 0;
     printf("Select the test payload mode \n"
            "0 - without payload, 1 - short payload msg, 2 - long payload msg: ");
@@ -175,11 +167,16 @@ int main(int argc, char* argv[])
         //"test_short_data"
         case 1:
         {
+            // Create short data msg for testing payload mode.
+            char* short_data = calloc(channel.max_packet_size / 2, sizeof (char));
+            int short_data_size = channel.max_packet_size / 2;
+            memset(short_data, 1, short_data_size);
+
             // cmd_name - this is logical port/path where data will be send
             char* cmd_name                      = "SHORT_DATA_PORT";
             // payload - this is the data to be sent and their size
             char* payload                       = short_data;
-            uint32_t payload_size               = sizeof (short_data);
+            uint32_t payload_size               = short_data_size;
             // data_type - this is the type of packaging of the sent data
             char* data_type                     = "blob";// mpack, json, blob..
             uint8_t is_check_crc                = FALSE; // check crc disabled
@@ -197,6 +194,8 @@ int main(int argc, char* argv[])
                                     is_check_crc, is_confirmation, is_one_answ,
                                     waiting_time,
                                     answ_clb, timeout_clb, free_clb);
+            // allocate short_data msg
+            free(short_data);
 
             // Send test msg
             if (!RF62X_channel_send_msg(&channel, msg))
@@ -229,6 +228,7 @@ int main(int argc, char* argv[])
                     RF62X_cleanup_msg(msg);
                     free(msg);
                 }
+                free(test_answer);
             }
 
             printf("Successfully %d responses received.\n", successful_results);
@@ -237,11 +237,16 @@ int main(int argc, char* argv[])
         //"test_long_data"
         case 2:
         {
+            // Create long data msg for testing chain mode.
+            char* long_data = calloc(channel.max_data_size / 2, sizeof (char));
+            int long_data_size = channel.max_data_size / 2;
+            memset(long_data, 2, long_data_size);
+
             // cmd_name - this is logical port/path where data will be send
             char* cmd_name                      = "LONG_DATA_PORT";
             // payload - this is the data to be sent and their size
             char* payload                       = long_data;
-            uint32_t payload_size               = sizeof (long_data);
+            uint32_t payload_size               = long_data_size;
             // data_type - this is the type of packaging of the sent data
             char* data_type                     = "blob";// mpack, json, blob..
             uint8_t is_check_crc                = FALSE; // check crc disabled
@@ -259,6 +264,8 @@ int main(int argc, char* argv[])
                                     is_check_crc, is_confirmation, is_one_answ,
                                     waiting_time,
                                     answ_clb, timeout_clb, free_clb);
+            // allocate long_data msg
+            free(long_data);
 
             // Send test msg
             if (!RF62X_channel_send_msg(&channel, msg))
@@ -291,6 +298,7 @@ int main(int argc, char* argv[])
                     RF62X_cleanup_msg(msg);
                     free(msg);
                 }
+                free(test_answer);
             }
 
             printf("Successfully %d responses received.\n", successful_results);

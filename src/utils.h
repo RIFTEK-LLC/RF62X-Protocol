@@ -137,13 +137,17 @@ void error_clock_gettime(const int gettime_rv);
  *    can get the time as well as a timezone.
  */
 
-#if defined(_WIN32) && !defined(_TIMEZONE_DEFINED)
+#ifdef _MSC_VER
 #define CLOCK_REALTIME 0
 struct timezone {
     int tz_minuteswest;     /* minutes west of Greenwich */
     int tz_dsttime;         /* type of DST correction */
 };
-#endif
+
 int get_time_of_day(struct timeval *tv, struct timezone *tz);
+
+LARGE_INTEGER getFILETIMEoffset();
+int clock_gettime(int X, struct timespec *tv);
+#endif
 
 #endif // UTILS_H

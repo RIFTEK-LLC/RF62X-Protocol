@@ -38,7 +38,9 @@ if (${PARENT}_RF_PLATFORM_UILS)
     # custom_string
     SET(${PARENT}_CUSTOM_STRING                         OFF CACHE BOOL "" FORCE)
     # pthreads-c
-    SET(${PARENT}_PTHREAD_C                             ON CACHE BOOL "" FORCE)
+    SET(${PARENT}_PTHREADS4W                            ON CACHE BOOL "" FORCE)
+    # getopt
+    SET(${PARENT}_GETOPT                                ON CACHE BOOL "" FORCE)
 endif()
 
 
@@ -51,7 +53,6 @@ if (${PARENT}_MPACK_SUBMODULE)
 endif()
 
 if (MSVC)
-    SET(CPTHREADS_BUILD_STATIC ON)
     add_subdirectory(RF-PlatformUtils)
 endif()
 

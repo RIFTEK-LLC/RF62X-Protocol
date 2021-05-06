@@ -52,7 +52,8 @@ target_link_libraries (${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
 
 if (MSVC)
     add_definitions( -DPTW32_STATIC_LIB )
-    target_link_libraries(${PROJECT_NAME} pthreads-c)
+    target_link_libraries(${PROJECT_NAME} libpthreads4w)
+    target_link_libraries(${PROJECT_NAME} getopt)
     target_link_libraries(${PROJECT_NAME} ws2_32)
 endif(MSVC)
 
