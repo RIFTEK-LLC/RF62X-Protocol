@@ -12,7 +12,7 @@
 // Default params
 #define RF62X_PARSER_DEFAULT_MAXIMUM_PACKET_SIZE 1024	///< Default maximum paket size
 #define RF62X_PARSER_DEFAULT_MAXIMUM_DATA_SIZE 6220800	///< Default maximum data size
-#define RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT 10    ///< Default confirmation timeout
+#define RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT 50    ///< Default confirmation timeout
 
 #define RF62X_PARSER_MAJOR_PROTOCOL_VERSION 1			///< Major version of RF62X protocol
 #define RF62X_PARSER_MINOR_PROTOCOL_VERSION 4			///< Monir version of RF62X protocol

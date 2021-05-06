@@ -695,17 +695,17 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     free(parser->input_msg_buffer[parser->input_msg_index].mask);
                     pthread_mutex_unlock(&parser->input_msg_buff_mutex);
 
-                    // Send notification about new data
-                    pthread_mutex_lock(&parser->input_data_cond_var_mutex);
-                    parser->input_data_cond_var_flag = TRUE;
-                    pthread_cond_signal(&parser->input_data_cond_var);
-                    pthread_mutex_unlock(&parser->input_data_cond_var_mutex);
-
                     free(type); type = NULL;
                     free(cmd_name); cmd_name = NULL;
                     free(container_type); container_type = NULL;
                     free(data); data = NULL;
                     mpack_tree_destroy(&tree);
+
+                    // Send notification about new data
+                    pthread_mutex_lock(&parser->input_data_cond_var_mutex);
+                    parser->input_data_cond_var_flag = TRUE;
+                    pthread_cond_signal(&parser->input_data_cond_var);
+                    pthread_mutex_unlock(&parser->input_data_cond_var_mutex);
                     return result;
                 }
                 else
@@ -788,7 +788,8 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 {
                     if (parser->input_msg_buffer[i].msg->_uid == logic_port_uid &&
                             parser->input_msg_buffer[i].msg->_device_id == src_device_uid &&
-                            strcmp(parser->input_msg_buffer[i].msg->cmd_name, cmd_name) == 0)
+                            strcmp(parser->input_msg_buffer[i].msg->cmd_name, cmd_name) == 0 &&
+                            parser->input_msg_buffer[i].msg->state & RF62X_MSG_WAIT_DECODING)
                     {
                         parser->input_msg_index = i;
                         input_msg = parser->input_msg_buffer[i].msg;
@@ -1533,10 +1534,6 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 // Increase data position
                 parser->output_msg_buffer[parser->output_msg_index].data_pos += playload_size;
 
-                // Return DATA packet flag
-                if (msg->confirmation_flag)
-                    msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
-
                 // Если сообщение полностью закодировано, то добавить соответствующие флаги
                 if (parser->output_msg_buffer[parser->output_msg_index].data_pos >=
                         (uint32_t)(msg->data_size))
@@ -1548,6 +1545,10 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     parser->output_msg_buffer[parser->output_msg_index].data_pos = 0;
 
                 }
+
+                // Return DATA packet flag
+                if (msg->confirmation_flag)
+                    msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
 
                 // Таймер готовности сообщения к отправке
                 msg->_sending_time = clock() * (1000.0 /CLOCKS_PER_SEC);
@@ -1647,12 +1648,13 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
     else if (msg->state & RF62X_MSG_TIMEOUT)
     {
         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-        return RF62X_PARSER_RETURN_STATUS_NO_DATA;
+        return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
     }else if (msg->state & RF62X_MSG_ENCODED &&
               msg->state & RF62X_MSG_WAIT_ANSW)
     {
         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-        return RF62X_PARSER_RETURN_STATUS_NO_DATA;
+        *packet_size = 0;
+        return RF62X_PARSER_RETURN_STATUS_DATA_READY;
     }
     else if (msg->state & RF62X_MSG_ENCODED)
     {

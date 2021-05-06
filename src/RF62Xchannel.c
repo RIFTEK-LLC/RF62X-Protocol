@@ -459,6 +459,7 @@ uint8_t RF62X_channel_send_msg(RF62X_channel *channel, RF62X_msg_t *msg)
                     {
                         //error_pthread_cond_timedwait(timed_wait_rv);
                         pthread_mutex_unlock(&channel->RF62X_parser.input_wait_confirm_var_mutex);
+                        result_value = RF62X_PARSER_RETURN_STATUS_PARAMS_ERROR;
                         continue;
                     }else
                     {
