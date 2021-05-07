@@ -1,4 +1,4 @@
-# RF62X-Protocol for scanners series RF62X
+# Communication Protocol for RF62X Series Scanners
 
 ```txt
 #############################################################################################
