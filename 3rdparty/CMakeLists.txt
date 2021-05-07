@@ -27,6 +27,8 @@ SET(${PARENT}_SUBMODULE_CACHE_OVERWRITE OFF CACHE BOOL "" FORCE)
 ###############################################################################
 SET(${PARENT}_MPACK_SUBMODULE                           ON CACHE BOOL "" FORCE)
 
+SET(${PARENT}_UDPPORT                                   ON CACHE BOOL "" FORCE)
+
 SET(${PARENT}_RF_PLATFORM_UILS                          ON CACHE BOOL "" FORCE)
 if (${PARENT}_RF_PLATFORM_UILS)
     # platform_methods
@@ -38,9 +40,11 @@ if (${PARENT}_RF_PLATFORM_UILS)
     # custom_string
     SET(${PARENT}_CUSTOM_STRING                         OFF CACHE BOOL "" FORCE)
     # pthreads-c
-    SET(${PARENT}_PTHREADS4W                            ON CACHE BOOL "" FORCE)
+    SET(${PARENT}_PTHREADS4W                            OFF CACHE BOOL "" FORCE)
     # getopt
-    SET(${PARENT}_GETOPT                                ON CACHE BOOL "" FORCE)
+    SET(${PARENT}_GETOPT                                OFF CACHE BOOL "" FORCE)
+    # getopt
+    SET(${PARENT}_SANDBOX                               ON CACHE BOOL "" FORCE)
 endif()
 
 
@@ -52,7 +56,16 @@ if (${PARENT}_MPACK_SUBMODULE)
     add_subdirectory(mpack)
 endif()
 
-if (MSVC)
+if (${PARENT}_UDPPORT)
+    add_subdirectory(udpport)
+endif()
+
+
+if (${PARENT}_RF_PLATFORM_UILS)
+    if (MSVC)
+        SET(${PARENT}_PTHREADS4W    ON CACHE BOOL "" FORCE)
+        SET(${PARENT}_GETOPT        ON CACHE BOOL "" FORCE)
+    endif()
     add_subdirectory(RF-PlatformUtils)
 endif()
 
