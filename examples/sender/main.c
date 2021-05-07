@@ -147,21 +147,17 @@ int main(int argc, char* argv[])
             {
                 char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
                 memcpy(test_answer, result->received_data, result->received_data_size);
+
                 if (strcmp("HELLO, SENDER!", test_answer) == 0)
-                {
-                    // Cleanup test msg
-                    RF62X_cleanup_msg(msg);
-                    free(msg);
                     successful_results++;
-                }else
-                {
-                    // Cleanup test msg
-                    RF62X_cleanup_msg(msg);
-                    free(msg);
-                }
+
+                free(test_answer);
             }
 
             printf("Successfully %d responses received.\n", successful_results);
+            // Cleanup test msg
+            RF62X_cleanup_msg(msg);
+            free(msg);
             break;
         }
         //"test_short_data"
@@ -216,22 +212,17 @@ int main(int argc, char* argv[])
             {
                 char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
                 memcpy(test_answer, result->received_data, result->received_data_size);
+
                 if (strcmp("HELLO, SENDER!", test_answer) == 0)
-                {
-                    // Cleanup test msg
-                    RF62X_cleanup_msg(msg);
-                    free(msg);
                     successful_results++;
-                }else
-                {
-                    // Cleanup test msg
-                    RF62X_cleanup_msg(msg);
-                    free(msg);
-                }
+
                 free(test_answer);
             }
 
             printf("Successfully %d responses received.\n", successful_results);
+            // Cleanup test msg
+            RF62X_cleanup_msg(msg);
+            free(msg);
             break;
         }
         //"test_long_data"
@@ -286,22 +277,17 @@ int main(int argc, char* argv[])
             {
                 char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
                 memcpy(test_answer, result->received_data, result->received_data_size);
+
                 if (strcmp("HELLO, SENDER!", test_answer) == 0)
-                {
-                    // Cleanup test msg
-                    RF62X_cleanup_msg(msg);
-                    free(msg);
                     successful_results++;
-                }else
-                {
-                    // Cleanup test msg
-                    RF62X_cleanup_msg(msg);
-                    free(msg);
-                }
+
                 free(test_answer);
             }
 
             printf("Successfully %d responses received.\n", successful_results);
+            // Cleanup test msg
+            RF62X_cleanup_msg(msg);
+            free(msg);
             break;
         }
         default:

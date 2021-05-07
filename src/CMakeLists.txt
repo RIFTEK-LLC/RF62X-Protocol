@@ -58,6 +58,8 @@ if (MSVC)
 endif(MSVC)
 
 target_link_libraries(${PROJECT_NAME} mpack)
+target_link_libraries(${PROJECT_NAME} udpport)
+target_link_libraries(${PROJECT_NAME} sandbox)
 if(MINGW)
     target_link_libraries(${PROJECT_NAME} ws2_32)
     target_link_libraries(${PROJECT_NAME} iphlpapi)

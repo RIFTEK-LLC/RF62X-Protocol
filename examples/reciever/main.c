@@ -84,9 +84,6 @@ int main(int argc, char* argv[])
     RF62X_channel_init(&channel, config);
     free(config);
 
-    // Create test data answer.
-    char* test_answer = "HELLO, SENDER!";
-
     printf("Start recieving data...\n");
     clock_t start, end;
     start = clock();
@@ -118,6 +115,9 @@ int main(int argc, char* argv[])
             }
             // But in this example we will send the same response
             // for all requests.
+
+            // Create test data answer.
+            char* test_answer = "HELLO, SENDER!";
 
             // Create answ msg
             char* payload                      = test_answer;
