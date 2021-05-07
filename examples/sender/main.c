@@ -1,5 +1,4 @@
 #include "RF62Xchannel.h"
-#include "RF62Xmsg.h"
 
 #include <mpack/mpack.h>
 #include <string.h>
@@ -20,7 +19,7 @@ void delay(unsigned int mseconds)
  * @param data_size Received data size.
  * @param data_device_id Device id that sent the reply.
  * @param rqst_msg Info about the request to which the response was received.
- * @return status (RF62X_PARSER_RETURN_STATUS_DATA_READY in case of successful)
+ * @return status TRUE in case of successful
  */
 int8_t RF62X_data_callback(
         char* data, uint32_t data_size, uint32_t device_id, void* rqst_msg);
@@ -28,7 +27,7 @@ int8_t RF62X_data_callback(
  * @brief RF62X_data_timeout_callback - callback is triggered when the
  * request timed out.
  * @param rqst_msg Info about the request to which the response was received.
- * @return status (RF62X_PARSER_RETURN_STATUS_DATA_READY in case of successful)
+ * @return status TRUE in case of successful
  */
 int8_t RF62X_data_timeout_callback(void* rqst_msg);
 /**
@@ -36,7 +35,7 @@ int8_t RF62X_data_timeout_callback(void* rqst_msg);
  * response to request has been received but not read
  * by user (RF62X_get_result_to_rqst_msg method).
  * @param rqst_msg Info about the request to which the response was received.
- * @return status (RF62X_PARSER_RETURN_STATUS_DATA_READY in case of successful)
+ * @return status TRUE in case of successful
  */
 int8_t RF62X_data_free_result_callback(void* rqst_msg);
 
@@ -85,7 +84,7 @@ int main(int argc, char* argv[])
 
 
     // Protocol creation and initialization
-    RF62X_channel channel;
+    RF62X_channel_t channel;
     RF62X_channel_init(&channel, config);
     free(config);
 
@@ -142,7 +141,7 @@ int main(int argc, char* argv[])
                 int received_data_size;
             }answer_t;
 
-            answer_t* result = RF62X_get_result_to_rqst_msg(&channel, msg, waiting_time);
+            answer_t* result = RF62X_find_result_to_rqst_msg(&channel, msg, waiting_time);
             if (result != NULL)
             {
                 char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
@@ -207,7 +206,7 @@ int main(int argc, char* argv[])
                 int received_data_size;
             }answer_t;
 
-            answer_t* result = RF62X_get_result_to_rqst_msg(&channel, msg, waiting_time);
+            answer_t* result = RF62X_find_result_to_rqst_msg(&channel, msg, waiting_time);
             if (result != NULL)
             {
                 char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
@@ -272,7 +271,7 @@ int main(int argc, char* argv[])
                 int received_data_size;
             }answer_t;
 
-            answer_t* result = RF62X_get_result_to_rqst_msg(&channel, msg, waiting_time);
+            answer_t* result = RF62X_find_result_to_rqst_msg(&channel, msg, waiting_time);
             if (result != NULL)
             {
                 char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
@@ -305,7 +304,7 @@ int8_t RF62X_data_callback(char* data, uint32_t data_size, uint32_t data_device_
     printf("Get answer to %s command, rqst-id: %" PRIu64 ", payload size: %d\n",
            ((RF62X_msg_t*)rqst_msg)->cmd_name, ((RF62X_msg_t*)rqst_msg)->_uid, data_size);
 #endif
-    int32_t status = RF62X_PARSER_RETURN_STATUS_NO_DATA;
+    int32_t status = FALSE;
 
     // You can check the ID of the device from which the response was received.
     uint32_t remote_device_id = 1;
@@ -335,7 +334,7 @@ int8_t RF62X_data_callback(char* data, uint32_t data_size, uint32_t data_device_
     memcpy(answer->received_data, data, data_size);
     answer->received_data_size = data_size;
 
-    status = RF62X_PARSER_RETURN_STATUS_DATA_READY;
+    status = TRUE;
     return status;
 }
 int8_t RF62X_data_timeout_callback(void* rqst_msg)

@@ -1,7 +1,6 @@
 #include "RF62Xparser.h"
-#include "RF62Xchannel.h"
-#include "utils.h"
 #include "mpack/mpack.h"
+#include "utils.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -46,10 +45,6 @@ uint8_t RF62X_parser_init(RF62X_parser_t* parser,
     parser->lost_full_data_size = 0;
     parser->detected_lost_data_id = 0;
     parser->detected_lost_data_logic_port = 0;
-    for (int i = 0; i < RF62X_PARSER_NUM_LOGIC_PORTS; i++)
-    {
-        parser->logic_port_name_list[i] = NULL;
-    }
 
     pthread_mutex_init(&parser->instance_mutex, NULL);
 
@@ -176,28 +171,6 @@ uint8_t RF62X_parser_opt_set(RF62X_parser_t* parser, char *opt_name, char *val)
     return TRUE;
 
 }
-
-uint16_t RF62X_parser_get_logic_port_number_by_cmd_name(RF62X_parser_t* parser, char* cmd_name)
-{
-    for(uint16_t i = 0; i < RF62X_PARSER_NUM_LOGIC_PORTS; i++)
-    {
-        if (parser->logic_port_name_list[i] != NULL)
-        {
-            if (strcmp(parser->logic_port_name_list[i], cmd_name) == 0)
-            {
-                return i;
-            }
-        }
-        else
-        {
-            parser->logic_port_name_list[i] = cmd_name;
-            return i;
-        }
-    }
-
-    return 0;
-}
-
 
 int32_t RF62X_parser_encode_lost_data_packet(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
 {

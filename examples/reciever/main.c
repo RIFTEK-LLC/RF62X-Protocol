@@ -15,7 +15,7 @@
  * @param data_size Received data size.
  * @param data_device_id Device id that sent the reply.
  * @param rqst_msg Info about the request to which the response was received.
- * @return status (RF62X_PARSER_RETURN_STATUS_DATA_READY in case of successful)
+ * @return TRUE in case of successful
  */
 int8_t RF62X_data_callback(
         char* data, uint32_t data_size, uint32_t device_id, void* rqst_msg);
@@ -23,7 +23,7 @@ int8_t RF62X_data_callback(
  * @brief RF62X_data_timeout_callback - callback is triggered when the
  * request timed out.
  * @param rqst_msg Info about the request to which the response was received.
- * @return status (RF62X_PARSER_RETURN_STATUS_DATA_READY in case of successful)
+ * @return TRUE in case of successful
  */
 int8_t RF62X_data_timeout_callback(void* rqst_msg);
 /**
@@ -31,7 +31,7 @@ int8_t RF62X_data_timeout_callback(void* rqst_msg);
  * response to request has been received but not read
  * by user (RF62X_get_result_to_rqst_msg method).
  * @param rqst_msg Info about the request to which the response was received.
- * @return status (RF62X_PARSER_RETURN_STATUS_DATA_READY in case of successful)
+ * @return TRUE in case of successful
  */
 int8_t RF62X_data_free_result_callback(void* rqst_msg);
 
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
 
 
     // Protocol creation and initialization
-    RF62X_channel channel;
+    RF62X_channel_t channel;
     RF62X_channel_init(&channel, config);
     free(config);
 
@@ -168,7 +168,7 @@ int8_t RF62X_data_callback(char* data, uint32_t data_size, uint32_t data_device_
     printf("Get answer to %s command, rqst-id: %" PRIu64 ", payload size: %d\n",
            ((RF62X_msg_t*)rqst_msg)->cmd_name, ((RF62X_msg_t*)rqst_msg)->_uid, data_size);
 
-    int32_t status = RF62X_PARSER_RETURN_STATUS_NO_DATA;
+    int32_t status = FALSE;
 
     // You can check the ID of the device from which the response was received.
     uint32_t remote_device_id = 1;
@@ -198,7 +198,7 @@ int8_t RF62X_data_callback(char* data, uint32_t data_size, uint32_t data_device_
     memcpy(answer->received_data, data, data_size);
     answer->received_data_size = data_size;
 
-    status = RF62X_PARSER_RETURN_STATUS_DATA_READY;
+    status = TRUE;
     return status;
 }
 int8_t RF62X_data_timeout_callback(void* rqst_msg)
