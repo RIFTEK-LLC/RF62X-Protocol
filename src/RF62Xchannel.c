@@ -43,7 +43,7 @@ typedef struct
 
 char *RF62X_channel_version()
 {
-    char* version = "2.1.4";
+    char* version = "2.2.0";
     return version;
 }
 
@@ -56,7 +56,6 @@ void *read_thread_func (void *args) {
     int bytes = 0;				///< Number of readed bytes.
     //char logic_port[256];		///< Logoc port of input data.
     int32_t result_value = 0;	///< Result value of methods.
-    uint16_t packet_size = 0;	///< Packet size
     uint8_t* packet_data = calloc(channel->max_packet_size, sizeof (uint8_t));
 
     // Thread loop
