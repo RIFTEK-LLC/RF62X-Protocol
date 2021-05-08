@@ -1,5 +1,5 @@
-#ifndef RF62X_CHANNEL_H
-#define RF62X_CHANNEL_H
+#ifndef RF62X_PROTOCOL_CHANNEL_H
+#define RF62X_PROTOCOL_CHANNEL_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -136,4 +136,4 @@ void* RF62X_find_result_to_rqst_msg(
 
 void RF62X_cleanup_msg(RF62X_msg_t* msg);
 
-#endif // RF62X_CHANNEL_H
+#endif // RF62X_PROTOCOL_CHANNEL_H

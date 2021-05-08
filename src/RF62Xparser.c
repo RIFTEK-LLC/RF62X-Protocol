@@ -1,4 +1,6 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "RF62Xparser.h"
+#include "RF62Xchannel.h"
 #include "mpack/mpack.h"
 #include "utils.h"
 
@@ -69,7 +71,7 @@ uint8_t RF62X_parser_init(RF62X_parser_t* parser,
     if (strlen(init_string) > 0)
     {
         // Parse parameters.
-        int _str_len = strlen(init_string) + 1;
+        uint32_t _str_len = (uint32_t)strlen(init_string) + 1;
         char* _init_string = calloc(_str_len, sizeof(char));
 
         memcpy(_init_string, init_string, _str_len);
@@ -86,14 +88,14 @@ uint8_t RF62X_parser_init(RF62X_parser_t* parser,
         RF62X_parser_init_param_t* params = calloc(param_count, sizeof (RF62X_parser_init_param_t));
 
         memcpy(_init_string, init_string, _str_len);
-        token = strtok(_init_string, " "); int token_len = 0;
+        token = strtok(_init_string, " "); uint32_t token_len = 0;
         for (int i = 0; i < param_count; i++)
         {
-            token_len = strlen(token) + 1;
+            token_len = (uint32_t)strlen(token) + 1;
             params[i].key = calloc(token_len, sizeof (char));
             memcpy(params[i].key, token, token_len);
 
-            token = strtok(NULL, " "); token_len = strlen(token) + 1;
+            token = strtok(NULL, " "); token_len = (uint32_t)strlen(token) + 1;
             params[i].value = calloc(token_len, sizeof (char));
             memcpy(params[i].value, token, token_len);
 
@@ -174,7 +176,10 @@ uint8_t RF62X_parser_opt_set(RF62X_parser_t* parser, char *opt_name, char *val)
 
 int32_t RF62X_parser_encode_lost_data_packet(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
 {
-
+    (void)parser;
+    (void)packet_data;
+    (void)packet_size;
+    return FALSE;
 }
 
 void RF62X_parser_get_msg_confirmation_packet(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
@@ -212,9 +217,9 @@ void RF62X_parser_get_msg_confirmation_packet(RF62X_parser_t *parser, uint8_t *p
 
             // If whole size of packet <= maximum packet size (according to initialization)
             // this msg sending once with the LAST flag set to TRUE
-            if (bytes <= (uint32_t)(parser->max_packet_size))
+            if (bytes <= (uint16_t)(parser->max_packet_size))
             {
-                *packet_size = bytes;
+                *packet_size = (uint16_t)bytes;
             }
 
             msg->state ^= RF62X_MSG_WAIT_CONFIRMATION;
@@ -236,7 +241,9 @@ void RF62X_parser_get_msg_confirmation_packet(RF62X_parser_t *parser, uint8_t *p
 
 void RF62X_parser_get_lost_data_request_packet(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
 {
-
+    (void)parser;
+    (void)packet_data;
+    (void)packet_size;
 }
 
 
@@ -352,7 +359,7 @@ uint8_t RF62X_parser_add_msg(RF62X_parser_t *parser, RF62X_msg_t *msg)
     buffer_msg->_device_id = msg->_device_id;
     buffer_msg->_uid = msg->_uid;
     buffer_msg->_timeout = msg->_timeout;
-    buffer_msg->_sending_time = clock() * (1000.0 /CLOCKS_PER_SEC);
+    buffer_msg->_sending_time = (uint32_t)(clock() * (1000.0 /CLOCKS_PER_SEC));
 
     buffer_msg->state = RF62X_MSG_WAIT_ENCODING;
 
@@ -459,7 +466,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
         mpack_node_t msg_node = mpack_node_map_cstr(root, "msg");
         if (mpack_node_map_contains_cstr(msg_node, "type"))
         {
-            int type_strlen = mpack_node_strlen(mpack_node_map_cstr(msg_node, "type")) + 1;
+            uint32_t type_strlen = (uint32_t)mpack_node_strlen(mpack_node_map_cstr(msg_node, "type")) + 1;
             type = mpack_node_cstr_alloc(mpack_node_map_cstr(msg_node, "type"), type_strlen);
         }
     }
@@ -473,7 +480,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
         char* cmd_name = NULL;
         if (mpack_node_map_contains_cstr(msg_node, "name"))
         {
-            int name_strlen = mpack_node_strlen(mpack_node_map_cstr(msg_node, "name")) + 1;
+            uint32_t name_strlen = (uint32_t)mpack_node_strlen(mpack_node_map_cstr(msg_node, "name")) + 1;
             cmd_name = mpack_node_cstr_alloc(mpack_node_map_cstr(msg_node, "name"), name_strlen);
         }
 
@@ -488,7 +495,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
         char* container_type = NULL;
         if (mpack_node_map_contains_cstr(msg_node, "container_type"))
         {
-            int container_type_strlen = mpack_node_strlen(mpack_node_map_cstr(msg_node, "container_type")) + 1;
+            uint32_t container_type_strlen = (uint32_t)mpack_node_strlen(mpack_node_map_cstr(msg_node, "container_type")) + 1;
             container_type = mpack_node_cstr_alloc(mpack_node_map_cstr(msg_node, "container_type"), container_type_strlen);
         }
 
@@ -725,7 +732,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
         char* cmd_name = NULL;
         if (mpack_node_map_contains_cstr(msg_node, "name"))
         {
-            int name_strlen = mpack_node_strlen(mpack_node_map_cstr(msg_node, "name")) + 1;
+            uint32_t name_strlen = (uint32_t)mpack_node_strlen(mpack_node_map_cstr(msg_node, "name")) + 1;
             cmd_name = mpack_node_cstr_alloc(mpack_node_map_cstr(msg_node, "name"), name_strlen);
         }
 
@@ -740,7 +747,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
         char* container_type = NULL;
         if (mpack_node_map_contains_cstr(msg_node, "container_type"))
         {
-            int container_type_strlen = mpack_node_strlen(mpack_node_map_cstr(msg_node, "container_type")) + 1;
+            uint32_t container_type_strlen = (uint32_t)mpack_node_strlen(mpack_node_map_cstr(msg_node, "container_type")) + 1;
             container_type = mpack_node_cstr_alloc(mpack_node_map_cstr(msg_node, "container_type"), container_type_strlen);
         }
 
@@ -1143,19 +1150,19 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                 // If whole size of packet <= maximum packet size (according to initialization)
                 // this msg sending once with the LAST flag set to TRUE
-                if (bytes <= (uint32_t)(parser->max_packet_size))
+                if (bytes <= (uint16_t)(parser->max_packet_size))
                 {
-                    *packet_size = bytes;
+                    *packet_size = (uint16_t)bytes;
                 }
                 // Otherwise, the msg needs to be re-encoded with the LAST flag set to FALSE
                 // and sent on the pieces
-                else if (bytes > (uint32_t)(parser->max_packet_size))
+                else if (bytes > (uint16_t)(parser->max_packet_size))
                 {
                     free(send_packet); send_packet = NULL;
 
-                    uint32_t header_size = bytes - msg->data_size;
+                    uint32_t header_size = (uint32_t)bytes - msg->data_size;
                     // secure reserve on maximum packet size is 10%
-                    playload_size = parser->max_packet_size * 0.90 - header_size;
+                    playload_size = (uint32_t)(parser->max_packet_size * 0.90) - header_size;
 
                     if (playload_size < 0)
                     {
@@ -1242,7 +1249,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                         return FALSE;
                     }
 
-                    *packet_size = bytes;
+                    *packet_size = (uint16_t)bytes;
 
                 }
 
@@ -1272,7 +1279,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 }
 
                 // Таймер готовности сообщения к отправке
-                msg->_sending_time = clock() * (1000.0 /CLOCKS_PER_SEC);
+                msg->_sending_time = (uint32_t)(clock() * (1000.0 /CLOCKS_PER_SEC));
                 // TODO надо ли возвращать именно RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION
                 if (msg->confirmation_flag)
                 {
@@ -1408,19 +1415,19 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                 // If whole size of packet <= maximum packet size (according to initialization)
                 // this msg sending once with the LAST flag set to TRUE
-                if (bytes <= (uint32_t)(parser->max_packet_size))
+                if (bytes <= (uint16_t)(parser->max_packet_size))
                 {
-                   *packet_size = bytes;
+                   *packet_size = (uint16_t)bytes;
                 }
                 // Otherwise, the msg needs to be re-encoded with the LAST flag set to FALSE
                 // and sent on the pieces
-                else if (bytes > (uint32_t)(parser->max_packet_size))
+                else if (bytes > (uint16_t)(parser->max_packet_size))
                 {
                     free(send_packet); send_packet = NULL;
 
-                    uint32_t header_size = bytes - (msg->data_size - parser->output_msg_buffer[parser->output_msg_index].data_pos);
+                    uint32_t header_size = (uint32_t)bytes - (msg->data_size - parser->output_msg_buffer[parser->output_msg_index].data_pos);
                     // secure reserve on maximum packet size is 10%
-                    playload_size = parser->max_packet_size * 0.90 - header_size;
+                    playload_size = (uint32_t)(parser->max_packet_size * 0.90) - header_size;
 
                     if (playload_size < 0)
                     {
@@ -1498,7 +1505,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                         return FALSE;
                     }
 
-                    *packet_size = bytes;
+                    *packet_size = (uint16_t)bytes;
                 }
 
                 // Copy data
@@ -1525,7 +1532,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
 
                 // Таймер готовности сообщения к отправке
-                msg->_sending_time = clock() * (1000.0 /CLOCKS_PER_SEC);
+                msg->_sending_time = (uint32_t)(clock() * (1000.0 /CLOCKS_PER_SEC));
                 // TODO надо ли возвращать именно RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION
                 if (msg->confirmation_flag)
                 {
@@ -1585,7 +1592,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     msg->state |= RF62X_MSG_WAIT_ANSW;
 
                 // Таймер готовности сообщения к отправке
-                msg->_sending_time = clock() * (1000.0 /CLOCKS_PER_SEC);
+                msg->_sending_time = (uint32_t)(clock() * (1000.0 /CLOCKS_PER_SEC));
                 // TODO надо ли возвращать именно RF62X_PARSER_RETURN_STATUS_DATA_WAIT_CONFIRMATION
                 if (msg->confirmation_flag)
                 {

@@ -1,5 +1,5 @@
-#ifndef RF62X_TYPES_H
-#define RF62X_TYPES_H
+#ifndef RF62X_PROTOCOL_TYPES_H
+#define RF62X_PROTOCOL_TYPES_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -210,4 +210,4 @@ typedef struct{
 
 }RF62X_channel_t;
 
-#endif // RF62X_TYPES_H
+#endif // RF62X_PROTOCOL_TYPES_H

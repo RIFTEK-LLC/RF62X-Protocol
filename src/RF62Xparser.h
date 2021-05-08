@@ -1,5 +1,5 @@
-#ifndef RF62X_PARSER_H
-#define RF62X_PARSER_H
+#ifndef RF62X_PROTOCOL_PARSER_H
+#define RF62X_PROTOCOL_PARSER_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -170,4 +170,4 @@ int32_t RF62X_parser_encode_lost_data_packet(
         uint8_t* packet_data,
         uint16_t* packet_size);
 
-#endif // RF62X_PARSER_H
+#endif // RF62X_PROTOCOL_PARSER_H
