@@ -45,7 +45,7 @@ typedef struct
 
 char *RF62X_channel_version()
 {
-    char* version = "2.3.0";
+    char* version = "2.3.3";
     return version;
 }
 
