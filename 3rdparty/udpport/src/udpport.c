@@ -159,8 +159,13 @@ int udp_port_read_data(udp_port_t *udpport, uint8_t *buf, uint32_t size, struct 
         return -1;
     // Wait and read data from socket.
     struct sockaddr_in sender_addr;
+#if defined(linux) || defined(__linux) || defined(__linux__)
+    socklen_t sender_addr_size = sizeof (sender_addr);
+    int ret = recvfrom(udpport->sock, (char*)buf, size, 0, (struct sockaddr *)& sender_addr, &sender_addr_size);
+#else
     int sender_addr_size = sizeof (sender_addr);
     int ret = recvfrom(udpport->sock, (char*)buf, size, 0, (SOCKADDR *) & sender_addr, &sender_addr_size);
+#endif
     srcSockaddr->sin_addr = sender_addr.sin_addr;
     srcSockaddr->sin_family = sender_addr.sin_family;
     srcSockaddr->sin_port = sender_addr.sin_port;

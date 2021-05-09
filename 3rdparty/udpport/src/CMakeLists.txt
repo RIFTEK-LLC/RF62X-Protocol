@@ -47,7 +47,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/)
 ## LINK LIBRARIES
 ## linking all dependencies
 ###############################################################################
-target_link_libraries(${PROJECT_NAME} ws2_32)
-if(MINGW)
-    target_link_libraries(${PROJECT_NAME} iphlpapi)
-endif(MINGW)
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} ws2_32)
+    if(MINGW)
+        target_link_libraries(${PROJECT_NAME} iphlpapi)
+    endif(MINGW)
+endif()
