@@ -259,8 +259,7 @@ RF62X_msg_t* RF62X_parser_get_free_output_msg_buffer(RF62X_parser_t *parser)
 
     for (int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
     {
-        parser->output_msg_index = (parser->output_msg_index + 1) % RF62X_PARSER_OUTPUT_BUFFER_QUEUE;
-        RF62X_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
+        RF62X_msg_t* msg = parser->output_msg_buffer[i].msg;
 
         if (msg == NULL)
         {
@@ -269,6 +268,7 @@ RF62X_msg_t* RF62X_parser_get_free_output_msg_buffer(RF62X_parser_t *parser)
 
         if (msg->state == RF62X_MSG_EMPTY)
         {
+            parser->output_msg_index = i;
             return msg;
         }
 
@@ -278,6 +278,7 @@ RF62X_msg_t* RF62X_parser_get_free_output_msg_buffer(RF62X_parser_t *parser)
             if (msg->state & RF62X_MSG_ANSWERED)
                 msg->_free_clb(msg);
             RF62X_cleanup_msg(msg);
+            parser->output_msg_index = i;
             return msg;
         }
     }
@@ -285,13 +286,13 @@ RF62X_msg_t* RF62X_parser_get_free_output_msg_buffer(RF62X_parser_t *parser)
     // Если нет свободных сообщений, то взять один из обработаных запросов
     for (int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
     {
-        parser->output_msg_index = (parser->output_msg_index + 1) % RF62X_PARSER_OUTPUT_BUFFER_QUEUE;
-        RF62X_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
+        RF62X_msg_t* msg = parser->output_msg_buffer[i].msg;
 
         if (msg->state & RF62X_MSG_ANSWERED)
         {
             msg->_free_clb(msg);
             RF62X_cleanup_msg(msg);
+            parser->output_msg_index = i;
             return msg;
         }
     }
@@ -301,12 +302,12 @@ RF62X_msg_t* RF62X_parser_get_free_output_msg_buffer(RF62X_parser_t *parser)
     // последнее из не отвеченных (TODO выбор последнего в очереди)
     for (int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
     {
-        parser->output_msg_index = (parser->output_msg_index + 1) % RF62X_PARSER_OUTPUT_BUFFER_QUEUE;
-        RF62X_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
+        RF62X_msg_t* msg = parser->output_msg_buffer[i].msg;
 
         if (msg->state & RF62X_MSG_ENCODED)
         {
             RF62X_cleanup_msg(msg);
+            parser->output_msg_index = i;
             return msg;
         }
     }
@@ -314,16 +315,16 @@ RF62X_msg_t* RF62X_parser_get_free_output_msg_buffer(RF62X_parser_t *parser)
     return NULL;
 }
 
-uint8_t RF62X_parser_add_msg(RF62X_parser_t *parser, RF62X_msg_t *msg)
+int32_t RF62X_parser_add_msg(RF62X_parser_t *parser, RF62X_msg_t *msg)
 {
     msg->_device_id = parser->host_device_uid;
     // Check input params.
     if (msg->data_size > parser->max_data_size)
-        return FALSE;
+        return -1;
 
     // Check of initialization of output msg buffer.
     if (parser->output_msg_buffer == NULL)
-        return FALSE;
+        return -1;
 
     // Change buffer index and change current data ID
     pthread_mutex_lock(&parser->output_msg_buff_mutex);
@@ -331,7 +332,7 @@ uint8_t RF62X_parser_add_msg(RF62X_parser_t *parser, RF62X_msg_t *msg)
     if (buffer_msg == NULL)
     {
         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-        return FALSE;
+        return -1;
     }
 
     // Copy msg
@@ -365,7 +366,7 @@ uint8_t RF62X_parser_add_msg(RF62X_parser_t *parser, RF62X_msg_t *msg)
 
     buffer_msg->result = NULL;
     pthread_mutex_unlock(&parser->output_msg_buff_mutex);
-    return TRUE;
+    return parser->output_msg_index;
 }
 
 RF62X_msg_t* RF62X_parser_get_free_input_msg_buffer(RF62X_parser_t *parser)
@@ -1036,7 +1037,7 @@ uint16_t crc16(const uint8_t *data, uint32_t len)
     return crc;
 }
 int test_count = 1;
-int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size)
+int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, uint16_t *packet_size, uint32_t msg_index)
 {
     // Check output msg initialization.
     if (parser->output_msg_buffer == NULL)
@@ -1049,16 +1050,16 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
         return FALSE;
     }
 
-    RF62X_msg_t* msg = parser->output_msg_buffer[parser->output_msg_index].msg;
+    RF62X_msg_t* msg = parser->output_msg_buffer[msg_index].msg;
     // Check data confirmation.
     if (msg->state & RF62X_MSG_WAIT_ENCODING)
     {
         // If this is the first message in the chain, then we need to add
         // all the keys to the message
-        if (parser->output_msg_buffer[parser->output_msg_index].data_pos == 0)
+        if (parser->output_msg_buffer[msg_index].data_pos == 0)
         {
             // If there is still data to include in the package DATA then we form a data package.
-            if (parser->output_msg_buffer[parser->output_msg_index].data_pos <=
+            if (parser->output_msg_buffer[msg_index].data_pos <=
                     msg->data_size)
             {
                 // The size of the data to be included in the package is equal to data_size,
@@ -1124,7 +1125,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                             // Смещение фрагмента данных в цепочке
                             mpack_write_cstr(&writer, "offset");
-                            mpack_write_uint(&writer, parser->output_msg_buffer[parser->output_msg_index].data_pos);
+                            mpack_write_uint(&writer, parser->output_msg_buffer[msg_index].data_pos);
 
                             // Флаг последнего фрагмента
                             mpack_write_cstr(&writer, "last");
@@ -1132,7 +1133,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                             // Бинарные данные
                             mpack_write_cstr(&writer, "data");
-                            mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[parser->output_msg_index].data_pos], playload_size);
+                            mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
 
                         }
                         mpack_finish_map(&writer);
@@ -1225,7 +1226,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                                 // Смещение фрагмента данных в цепочке
                                 mpack_write_cstr(&writer, "offset");
-                                mpack_write_uint(&writer, parser->output_msg_buffer[parser->output_msg_index].data_pos);
+                                mpack_write_uint(&writer, parser->output_msg_buffer[msg_index].data_pos);
 
                                 // Флаг последнего фрагмента
                                 mpack_write_cstr(&writer, "last");
@@ -1233,7 +1234,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                                 // Бинарные данные
                                 mpack_write_cstr(&writer, "data");
-                                mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[parser->output_msg_index].data_pos], playload_size);
+                                mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
 
                             }
                             mpack_finish_map(&writer);
@@ -1258,14 +1259,14 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 free(send_packet); send_packet = NULL;
 
                 // Increase data position
-                parser->output_msg_buffer[parser->output_msg_index].data_pos += playload_size;
+                parser->output_msg_buffer[msg_index].data_pos += playload_size;
 
                 // Return DATA packet flag
                 if (msg->confirmation_flag)
                     msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
 
                 // Если сообщение полностью закодировано, то добавить соответствующие флаги
-                if (parser->output_msg_buffer[parser->output_msg_index].data_pos >=
+                if (parser->output_msg_buffer[msg_index].data_pos >=
                         (uint32_t)(msg->data_size))
                 {
                     msg->state = RF62X_MSG_ENCODED;
@@ -1274,7 +1275,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     if (msg->confirmation_flag)
                         msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
 
-                    parser->output_msg_buffer[parser->output_msg_index].data_pos = 0;
+                    parser->output_msg_buffer[msg_index].data_pos = 0;
 
                 }
 
@@ -1302,7 +1303,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
         else
         {
             // If there is still data to include in the package DATA then we form a data package.
-            if (parser->output_msg_buffer[parser->output_msg_index].data_pos <
+            if (parser->output_msg_buffer[msg_index].data_pos <
                     msg->data_size)
             {
 
@@ -1316,7 +1317,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     }else
                     {
                         // TODO Нужно ли только в одном месте чистить сообщения
-//                        msg->_timeout_clb(parser->output_msg_buffer[parser->output_msg_index].msg);
+//                        msg->_timeout_clb(parser->output_msg_buffer[msg_index].msg);
 //                        msg->state |= RF62X_MSG_TIMEOUT;
                         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
                         return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
@@ -1324,23 +1325,23 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 }
 
                 // TODO нужно ли контролировать время отправки данных
-//                if (parser->output_msg_buffer[parser->output_msg_index].msg->_timeout > 0)
+//                if (parser->output_msg_buffer[msg_index].msg->_timeout > 0)
 //                {
-//                    if ((clock() - parser->output_msg_buffer[parser->output_msg_index].msg->_sending_time) >
-//                            parser->output_msg_buffer[parser->output_msg_index].msg->_timeout)
+//                    if ((clock() - parser->output_msg_buffer[msg_index].msg->_sending_time) >
+//                            parser->output_msg_buffer[msg_index].msg->_timeout)
 //                    {
-//                        parser->output_msg_buffer[parser->output_msg_index].msg->_timeout_clb(
-//                                    parser->output_msg_buffer[parser->output_msg_index].msg);
-//                        parser->output_msg_buffer[parser->output_msg_index].msg->state |= RF62X_MSG_TIMEOUT;
+//                        parser->output_msg_buffer[msg_index].msg->_timeout_clb(
+//                                    parser->output_msg_buffer[msg_index].msg);
+//                        parser->output_msg_buffer[msg_index].msg->state |= RF62X_MSG_TIMEOUT;
 //                        return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
 //                    }
 //                }
 
-//                parser->output_msg_buffer[parser->output_msg_index].msg->_sending_time = clock();
+//                parser->output_msg_buffer[msg_index].msg->_sending_time = clock();
 
                 // Calculate size of data to include in packet.
                 uint32_t playload_size = msg->data_size -
-                        parser->output_msg_buffer[parser->output_msg_index].data_pos;
+                        parser->output_msg_buffer[msg_index].data_pos;
 
                 // Create SHORT DATA packet for measurement SIZE of data packet
                 mpack_writer_t writer;
@@ -1389,7 +1390,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                         {
                             // Смещение фрагмента данных в цепочке
                             mpack_write_cstr(&writer, "offset");
-                            mpack_write_uint(&writer, parser->output_msg_buffer[parser->output_msg_index].data_pos);
+                            mpack_write_uint(&writer, parser->output_msg_buffer[msg_index].data_pos);
 
                             // Флаг последнего фрагмента
                             mpack_write_cstr(&writer, "last");
@@ -1397,7 +1398,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                             // Бинарные данные
                             mpack_write_cstr(&writer, "data");
-                            mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[parser->output_msg_index].data_pos], playload_size);
+                            mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
 
                         }
                         mpack_finish_map(&writer);
@@ -1425,7 +1426,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 {
                     free(send_packet); send_packet = NULL;
 
-                    uint32_t header_size = (uint32_t)bytes - (msg->data_size - parser->output_msg_buffer[parser->output_msg_index].data_pos);
+                    uint32_t header_size = (uint32_t)bytes - (msg->data_size - parser->output_msg_buffer[msg_index].data_pos);
                     // secure reserve on maximum packet size is 10%
                     playload_size = (uint32_t)(parser->max_packet_size * 0.90) - header_size;
 
@@ -1481,7 +1482,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                             {
                                 // Смещение фрагмента данных в цепочке
                                 mpack_write_cstr(&writer, "offset");
-                                mpack_write_uint(&writer, parser->output_msg_buffer[parser->output_msg_index].data_pos);
+                                mpack_write_uint(&writer, parser->output_msg_buffer[msg_index].data_pos);
 
                                 // Флаг последнего фрагмента
                                 mpack_write_cstr(&writer, "last");
@@ -1489,7 +1490,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                                 // Бинарные данные
                                 mpack_write_cstr(&writer, "data");
-                                mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[parser->output_msg_index].data_pos], playload_size);
+                                mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
 
                             }
                             mpack_finish_map(&writer);
@@ -1513,17 +1514,17 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 free(send_packet); send_packet = NULL;
 
                 // Increase data position
-                parser->output_msg_buffer[parser->output_msg_index].data_pos += playload_size;
+                parser->output_msg_buffer[msg_index].data_pos += playload_size;
 
                 // Если сообщение полностью закодировано, то добавить соответствующие флаги
-                if (parser->output_msg_buffer[parser->output_msg_index].data_pos >=
+                if (parser->output_msg_buffer[msg_index].data_pos >=
                         (uint32_t)(msg->data_size))
                 {
                     msg->state = RF62X_MSG_ENCODED;
                     if (msg->wait_answ_flag)
                         msg->state |= RF62X_MSG_WAIT_ANSW;
 
-                    parser->output_msg_buffer[parser->output_msg_index].data_pos = 0;
+                    parser->output_msg_buffer[msg_index].data_pos = 0;
 
                 }
 
@@ -1549,7 +1550,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     return RF62X_PARSER_RETURN_STATUS_DATA;
                 }
             }
-            else if (parser->output_msg_buffer[parser->output_msg_index].data_pos >=
+            else if (parser->output_msg_buffer[msg_index].data_pos >=
                         (uint32_t)(msg->data_size))
             {
                 if (msg->state & RF62X_MSG_WAIT_CONFIRMATION)
@@ -1562,7 +1563,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     }else
                     {
                         // TODO Нужно ли только в одном месте чистить сообщения
-//                        msg->_timeout_clb(parser->output_msg_buffer[parser->output_msg_index].msg);
+//                        msg->_timeout_clb(parser->output_msg_buffer[msg_index].msg);
 //                        msg->state |= RF62X_MSG_TIMEOUT;
                         pthread_mutex_unlock(&parser->output_msg_buff_mutex);
                         return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
@@ -1570,14 +1571,14 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                 }
 
                 // TODO нужно ли контролировать время отправки данных
-//                if (parser->output_msg_buffer[parser->output_msg_index].msg->_timeout > 0)
+//                if (parser->output_msg_buffer[msg_index].msg->_timeout > 0)
 //                {
-//                    if ((clock() - parser->output_msg_buffer[parser->output_msg_index].msg->_sending_time) >
-//                            parser->output_msg_buffer[parser->output_msg_index].msg->_timeout)
+//                    if ((clock() - parser->output_msg_buffer[msg_index].msg->_sending_time) >
+//                            parser->output_msg_buffer[msg_index].msg->_timeout)
 //                    {
-//                        parser->output_msg_buffer[parser->output_msg_index].msg->_timeout_clb(
-//                                    parser->output_msg_buffer[parser->output_msg_index].msg);
-//                        parser->output_msg_buffer[parser->output_msg_index].msg->state |= RF62X_MSG_TIMEOUT;
+//                        parser->output_msg_buffer[msg_index].msg->_timeout_clb(
+//                                    parser->output_msg_buffer[msg_index].msg);
+//                        parser->output_msg_buffer[msg_index].msg->state |= RF62X_MSG_TIMEOUT;
 //                        return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;
 //                    }
 //                }
@@ -1620,7 +1621,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
         }else
         {
             // TODO Нужно ли только в одном месте чистить сообщения
-            //msg->_timeout_clb(parser->output_msg_buffer[parser->output_msg_index].msg);
+            //msg->_timeout_clb(parser->output_msg_buffer[msg_index].msg);
             //msg->state |= RF62X_MSG_TIMEOUT;
             pthread_mutex_unlock(&parser->output_msg_buff_mutex);
             return RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT;

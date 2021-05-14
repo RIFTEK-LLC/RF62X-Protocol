@@ -393,7 +393,8 @@ uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
         return FALSE;
     }
 
-    if (!RF62X_parser_add_msg(&channel->RF62X_parser, msg))
+    int index = RF62X_parser_add_msg(&channel->RF62X_parser, msg);
+    if (index < 0)
     {
         pthread_mutex_unlock(&channel->instance_mutex);
         return FALSE;
@@ -403,6 +404,7 @@ uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
     uint16_t packet_size = 0;
     int32_t result_value = RF62X_PARSER_RETURN_STATUS_PARAMS_ERROR;
 
+    uint8_t* output_packet_data = calloc(channel->max_packet_size, sizeof (uint8_t));
     // Sending loop
     while (result_value != RF62X_PARSER_RETURN_STATUS_DATA_READY &&
            result_value != RF62X_PARSER_RETURN_STATUS_NO_DATA)
@@ -410,19 +412,21 @@ uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
         // Encode data packet
         result_value = RF62X_parser_encode_msg(
                     &channel->RF62X_parser,
-                    channel->output_packet_data,
-                    &packet_size);
+                    output_packet_data,
+                    &packet_size, index);
 
         // Check if encoding was unsuccessfull
         if (result_value == RF62X_PARSER_RETURN_STATUS_DATA_TIMEOUT)
         {
             pthread_mutex_unlock(&channel->instance_mutex);
+            free(output_packet_data);
             return FALSE;
         }
 
         if (result_value == RF62X_PARSER_RETURN_STATUS_NO_DATA)
         {
             pthread_mutex_unlock(&channel->instance_mutex);
+            free(output_packet_data);
             return FALSE;
         }
 
@@ -430,12 +434,13 @@ uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
         if (packet_size > 0)
         {
             pthread_mutex_lock(&channel->output_udpport_mutex);
-            int ret = udp_port_send_data(&channel->RF62X_sock, channel->output_packet_data, packet_size);
+            int ret = udp_port_send_data(&channel->RF62X_sock, output_packet_data, packet_size);
 //            packet_size = 0;
             pthread_mutex_unlock(&channel->output_udpport_mutex);
             if (ret <= 0)
             {
                 pthread_mutex_unlock(&channel->instance_mutex);
+                free(output_packet_data);
                 return FALSE;
             }
         }
@@ -452,6 +457,7 @@ uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
             if (gettime_rv)
             {
                 error_clock_gettime(gettime_rv);
+                free(output_packet_data);
                 return FALSE;
             }else
             {
@@ -486,6 +492,7 @@ uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
         }
     }
 
+    free(output_packet_data);
     pthread_mutex_unlock(&channel->instance_mutex);
     return TRUE;
 }

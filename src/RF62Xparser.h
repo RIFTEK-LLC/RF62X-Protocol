@@ -67,7 +67,7 @@ uint8_t RF62X_parser_opt_set(
  * @param msg Ptr(not NULL) to new output msg to encode
  * @return TRUE if new msg added successfully or FALSE
  */
-uint8_t RF62X_parser_add_msg(
+int32_t RF62X_parser_add_msg(
         RF62X_parser_t* parser,
         RF62X_msg_t* msg);
 
@@ -86,7 +86,8 @@ uint8_t RF62X_parser_add_msg(
 int32_t RF62X_parser_encode_msg(
         RF62X_parser_t* parser,
         uint8_t* packet_data,
-        uint16_t* packet_size);
+        uint16_t* packet_size,
+        uint32_t msg_index);
 
 /**
  * @brief RF62X_parser_decode_msg - Method to process input packet.
