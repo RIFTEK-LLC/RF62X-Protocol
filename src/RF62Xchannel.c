@@ -561,17 +561,18 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
             // UnLock
             pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
 
-            usleep(mseconds/10);
+            usleep(1000);
         }
     }
     // Если ожидается получение нескольких сообщений, до дождаться окончания таймера
     else
     {
-        int count = 0;
-        while (goal > clock() * (1000.0 /CLOCKS_PER_SEC))
-        {
-            count++;
-        }
+//        int count = 0;
+//        while (goal > clock() * (1000.0 /CLOCKS_PER_SEC))
+//        {
+//            count++;
+//        }
+        usleep(mseconds*1000);
 
         // Lock
         pthread_mutex_lock(&channel->RF62X_parser.output_msg_buff_mutex);
