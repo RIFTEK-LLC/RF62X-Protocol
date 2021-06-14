@@ -612,7 +612,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
             }
 
             // Copy data if it is not empty DATA packet.
-            if (data_size > 0 && parser->input_msg_buffer[parser->input_msg_index].mask[offset] != 1)
+            if (data_size > 0 && input_msg->data_size > 0 && parser->input_msg_buffer[parser->input_msg_index].mask[offset] != 1)
             {
                 memcpy(&input_msg->data[offset], data, data_size);
                 // Update data position if it is next data in data buffer (not previous data in data buffers)
@@ -870,7 +870,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     }
 
                     // Copy data if it is not empty DATA packet.
-                    if (data_size > 0 && parser->input_msg_buffer[parser->input_msg_index].mask[offset] != 1)
+                    if (data_size > 0 && input_msg->data_size > 0 && parser->input_msg_buffer[parser->input_msg_index].mask[offset] != 1)
                     {
                         memcpy(&input_msg->data[offset], data, data_size);
                         // Update data position if it is next data in data buffer (not previous data in data buffers)
