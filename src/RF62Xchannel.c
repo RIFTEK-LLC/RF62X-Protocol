@@ -461,6 +461,7 @@ uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
                 return FALSE;
             }else
             {
+                usleep(5000);
                 max_wait.tv_sec += RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT / 1000;      // 2 sec
                 max_wait.tv_nsec += ((RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT % 1000) * 1000) * 1000; // nsec
                 if (!channel->RF62X_parser.input_wait_confirm_cond_var_flag)
@@ -525,17 +526,50 @@ void usleep(__int64 usec)
 }
 #endif
 
+bool timespec_compar(struct timespec a, struct timespec b)
+{
+    if (a.tv_sec == b.tv_sec)
+        return a.tv_nsec > b.tv_nsec;
+    else
+        return a.tv_sec > b.tv_sec;
+}
 
 void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, uint32_t timeout)
 {
     unsigned int mseconds = timeout;
-    uint8_t is_answered = FALSE;
-    clock_t goal = mseconds + clock() * (1000.0 /CLOCKS_PER_SEC);
+
+    // timespec is a structure holding an interval broken down into seconds and nanoseconds.
+    struct timespec goal = {0, 0};
+    struct timespec current_time = {0, 0};
+    const int gettime_goal = clock_gettime(CLOCK_REALTIME, &goal);
+    if (gettime_goal)
+    {
+        error_clock_gettime(gettime_goal);
+        return FALSE;
+    }
+    const int gettime_current_time = clock_gettime(CLOCK_REALTIME, &current_time);
+    if (gettime_current_time)
+    {
+        error_clock_gettime(gettime_current_time);
+        return FALSE;
+    }
+
+    goal.tv_sec += timeout / 1000;      // 2 sec
+    goal.tv_nsec += ((timeout % 1000) * 1000) * 1000; // nsec
+
+    //clock_t goal = mseconds + clock() * (1000.0 /CLOCKS_PER_SEC);
     // Если ожидается только один ответ на запрос, то выполнять постоянную проверку на ответ
     if (msg->one_answ_flag)
     {
-        while (goal > clock() * (1000.0 /CLOCKS_PER_SEC))
+        //while (goal > clock() * (1000.0 /CLOCKS_PER_SEC))
+        while (timespec_compar(goal, current_time))
         {
+            const int gettime_current_time = clock_gettime(CLOCK_REALTIME, &current_time);
+            if (gettime_current_time)
+            {
+                error_clock_gettime(gettime_current_time);
+                return FALSE;
+            }
             // Lock
             pthread_mutex_lock(&channel->RF62X_parser.output_msg_buff_mutex);
             if (channel->RF62X_parser.output_msg_buffer != NULL)
@@ -547,7 +581,6 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
                     {
                         if (rqst_msg->state & RF62X_MSG_ANSWERED)
                         {
-                            is_answered = TRUE;
                             pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
                             return rqst_msg->result;
                         }
@@ -561,7 +594,7 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
             // UnLock
             pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
 
-            usleep(1000);
+            usleep(mseconds*100);
         }
     }
     // Если ожидается получение нескольких сообщений, до дождаться окончания таймера
@@ -585,7 +618,6 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
                 {
                     if (rqst_msg->state)
                     {
-                        is_answered = TRUE;
                         pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
                         return rqst_msg->result;
                     }
