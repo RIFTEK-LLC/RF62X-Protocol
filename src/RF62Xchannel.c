@@ -384,6 +384,21 @@ uint8_t RF62X_channel_opt_set(RF62X_channel_t* channel, char *opt_name, char *va
     }
 }
 
+#ifdef _WIN32
+void usleep(__int64 usec)
+{
+    HANDLE timer;
+    LARGE_INTEGER ft;
+
+    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+
+    timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+    WaitForSingleObject(timer, INFINITE);
+    CloseHandle(timer);
+}
+#endif
+
 uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
 {
     const int lock_rv = pthread_mutex_lock(&channel->instance_mutex);
@@ -510,21 +525,6 @@ RF62X_msg_t* RF62X_channel_get_msg(RF62X_channel_t *channel, int32_t timeout_ms)
     pthread_mutex_unlock(&channel->instance_mutex);
     return ret_msg;
 }
-
-#ifdef _WIN32
-void usleep(__int64 usec)
-{
-    HANDLE timer;
-    LARGE_INTEGER ft;
-
-    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
-
-    timer = CreateWaitableTimer(NULL, TRUE, NULL);
-    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
-    WaitForSingleObject(timer, INFINITE);
-    CloseHandle(timer);
-}
-#endif
 
 bool timespec_compar(struct timespec a, struct timespec b)
 {
