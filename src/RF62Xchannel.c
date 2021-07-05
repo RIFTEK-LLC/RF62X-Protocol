@@ -561,7 +561,7 @@ RF62X_msg_t* RF62X_channel_get_msg(RF62X_channel_t *channel, int32_t timeout_ms)
 
 void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, uint32_t timeout)
 {
-    unsigned int mseconds = timeout;
+    uint64_t mseconds = timeout;
 
     // timespec is a structure holding an interval broken down into seconds and nanoseconds.
     struct timespec goal = {0, 0};
@@ -579,7 +579,7 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
         return FALSE;
     }
 
-    timespec_add_ns(&goal, (timeout * 1000) * 1000);
+    timespec_add_ns(&goal, (mseconds * 1000) * 1000);
 
     // Если ожидается только один ответ на запрос, то выполнять постоянную проверку на ответ
     if (msg->one_answ_flag)
