@@ -37,10 +37,12 @@ typedef struct
     uint64_t _uid;
     uint32_t _sending_time;
     uint32_t _timeout;
+    uint32_t _resends;
 
     uint16_t state;            ///< Data receiver acknowledgment flag
 
     void* result;
+    pthread_mutex_t* result_mutex;
 }RF62X_msg_t;
 
 typedef enum{

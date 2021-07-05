@@ -76,6 +76,7 @@ RF62X_msg_t* RF62X_channel_get_msg(
  * @param is_confirmation ON/OFF confirmation (best used for sending big data)
  * @param is_one_answ Wait one answer per request
  * @param waiting_time Time to wait for a response (rqst msg lifetime)
+ * @param resends Number of resends (if exchange with confirmations)
  * @param answ_clb Callback ptr is called when data for rqst has been received
  * if answ_clb == NULL - the response to the request will be ignored.
  * @param timeout_clb Callback ptr is called when the request timed out.
@@ -86,7 +87,7 @@ RF62X_msg_t* RF62X_channel_get_msg(
 RF62X_msg_t* RF62X_create_rqst_msg(
         char* cmd_name, char* payload, uint32_t payload_size, char* data_type,
         uint8_t is_check_crc, uint8_t is_confirmation, uint8_t is_one_answ,
-        uint32_t waiting_time,
+        uint32_t waiting_time, uint32_t resends,
         RF62X_answ_callback answ,
         RF62X_timeout_callback timeout_clb,
         RF62X_free_callback free_clb);
@@ -101,6 +102,7 @@ RF62X_msg_t* RF62X_create_rqst_msg(
  * @param is_confirmation ON/OFF confirmation (best used for sending big data)
  * @param is_one_answ Wait one answer per message reply
  * @param waiting_time Time to wait for a response (message reply lifetime)
+ * @param resends Number of resends (if exchange with confirmations)
  * @param answ_clb Callback ptr is called when data for reply has been received
  * if answ_clb == NULL - the response to the reply will be ignored.
  * @param timeout_clb Callback ptr is called when the reply timed out.
@@ -111,7 +113,7 @@ RF62X_msg_t* RF62X_create_rqst_msg(
 RF62X_msg_t* RF62X_create_answ_msg(
         RF62X_msg_t* rqst_msg, char *payload, uint32_t payload_size, char* data_type,
         uint8_t is_check_crc, uint8_t is_confirmation, uint8_t is_one_answ,
-        uint32_t timeout,
+        uint32_t timeout, uint32_t resends,
         RF62X_answ_callback answ_clb,
         RF62X_timeout_callback timeout_clb,
         RF62X_free_callback free_clb);

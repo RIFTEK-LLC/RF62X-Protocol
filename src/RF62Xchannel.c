@@ -49,6 +49,21 @@ char *RF62X_channel_version()
     return version;
 }
 
+#ifdef _WIN32
+void usleep(__int64 usec)
+{
+    HANDLE timer;
+    LARGE_INTEGER ft;
+
+    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+
+    timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+    WaitForSingleObject(timer, INFINITE);
+    CloseHandle(timer);
+}
+#endif
+
 uint8_t test_msg_uid = 1;
 uint8_t test_uid = 1;
 void *read_thread_func (void *args) {
@@ -384,20 +399,38 @@ uint8_t RF62X_channel_opt_set(RF62X_channel_t* channel, char *opt_name, char *va
     }
 }
 
-#ifdef _WIN32
-void usleep(__int64 usec)
+bool timespec_compar(struct timespec a, struct timespec b)
 {
-    HANDLE timer;
-    LARGE_INTEGER ft;
-
-    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
-
-    timer = CreateWaitableTimer(NULL, TRUE, NULL);
-    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
-    WaitForSingleObject(timer, INFINITE);
-    CloseHandle(timer);
+    if (a.tv_sec == b.tv_sec)
+        return a.tv_nsec > b.tv_nsec;
+    else
+        return a.tv_sec > b.tv_sec;
 }
-#endif
+
+static inline uint32_t __iter_div_u64_rem(uint64_t dividend, uint32_t divisor, uint64_t *remainder)
+{
+    uint32_t ret = 0;
+
+    while (dividend >= divisor) {
+        /* The following asm() prevents the compiler from
+       optimising this loop into a modulo operation.  */
+        asm("" : "+rm"(dividend));
+
+        dividend -= divisor;
+        ret++;
+    }
+
+    *remainder = dividend;
+
+    return ret;
+}
+
+#define NSEC_PER_SEC  1000000000L
+static inline void timespec_add_ns(struct timespec *a, uint64_t ns)
+{
+    a->tv_sec += __iter_div_u64_rem(a->tv_nsec + ns, NSEC_PER_SEC, &ns);
+    a->tv_nsec = ns;
+}
 
 uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
 {
@@ -476,9 +509,7 @@ uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
                 return FALSE;
             }else
             {
-                usleep(5000);
-                max_wait.tv_sec += RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT / 1000;      // 2 sec
-                max_wait.tv_nsec += ((RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT % 1000) * 1000) * 1000; // nsec
+                timespec_add_ns(&max_wait, (RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT * 1000) * 1000);
                 if (!channel->RF62X_parser.input_wait_confirm_cond_var_flag)
                 {
                     const int timed_wait_rv = pthread_cond_timedwait(&channel->RF62X_parser.input_wait_confirm_cond_var, &channel->RF62X_parser.input_wait_confirm_var_mutex, &max_wait);
@@ -526,13 +557,7 @@ RF62X_msg_t* RF62X_channel_get_msg(RF62X_channel_t *channel, int32_t timeout_ms)
     return ret_msg;
 }
 
-bool timespec_compar(struct timespec a, struct timespec b)
-{
-    if (a.tv_sec == b.tv_sec)
-        return a.tv_nsec > b.tv_nsec;
-    else
-        return a.tv_sec > b.tv_sec;
-}
+
 
 void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, uint32_t timeout)
 {
@@ -554,10 +579,8 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
         return FALSE;
     }
 
-    goal.tv_sec += timeout / 1000;      // 2 sec
-    goal.tv_nsec += ((timeout % 1000) * 1000) * 1000; // nsec
+    timespec_add_ns(&goal, (timeout * 1000) * 1000);
 
-    //clock_t goal = mseconds + clock() * (1000.0 /CLOCKS_PER_SEC);
     // Если ожидается только один ответ на запрос, то выполнять постоянную проверку на ответ
     if (msg->one_answ_flag)
     {
@@ -571,7 +594,7 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
                 return FALSE;
             }
             // Lock
-            pthread_mutex_lock(&channel->RF62X_parser.output_msg_buff_mutex);
+//            pthread_mutex_lock(&channel->RF62X_parser.output_msg_buff_mutex);
             if (channel->RF62X_parser.output_msg_buffer != NULL)
             {
                 for (int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
@@ -581,18 +604,18 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
                     {
                         if (rqst_msg->state & RF62X_MSG_ANSWERED)
                         {
-                            pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
+//                            pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
                             return rqst_msg->result;
                         }
                     }
                 }
             }else
             {
-                pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
+//                pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
                 return NULL;
             }
             // UnLock
-            pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
+//            pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
 
             usleep(1000);
         }
@@ -608,7 +631,7 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
         usleep(mseconds*1000);
 
         // Lock
-        pthread_mutex_lock(&channel->RF62X_parser.output_msg_buff_mutex);
+//        pthread_mutex_lock(&channel->RF62X_parser.output_msg_buff_mutex);
         if (channel->RF62X_parser.output_msg_buffer != NULL)
         {
             for (int i = 0; i < RF62X_PARSER_OUTPUT_BUFFER_QUEUE; i++)
@@ -618,18 +641,18 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
                 {
                     if (rqst_msg->state)
                     {
-                        pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
+//                        pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
                         return rqst_msg->result;
                     }
                 }
             }
         }else
         {
-            pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
+//            pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
             return NULL;
         }
         // UnLock
-        pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
+//        pthread_mutex_unlock(&channel->RF62X_parser.output_msg_buff_mutex);
 
     }
     return NULL;
@@ -639,7 +662,7 @@ void *RF62X_find_result_to_rqst_msg(RF62X_channel_t *channel, RF62X_msg_t *msg, 
 int msg_count = 0;
 RF62X_msg_t *RF62X_create_rqst_msg(char *cmd_name, char *data, uint32_t data_size, char* data_type,
                                    uint8_t is_check_crc, uint8_t is_confirmation, uint8_t is_one_answ,
-                                   uint32_t timeout,
+                                   uint32_t timeout, uint32_t resends,
                                    RF62X_answ_callback answ_clb,
                                    RF62X_timeout_callback timeout_clb,
                                    RF62X_free_callback free_clb)
@@ -651,7 +674,15 @@ RF62X_msg_t *RF62X_create_rqst_msg(char *cmd_name, char *data, uint32_t data_siz
     strcpy(rqst_msg->container_type, data_type);
 
     rqst_msg->check_crc_flag = is_check_crc;
-    rqst_msg->confirmation_flag = is_confirmation;
+    if (is_confirmation)
+    {
+        rqst_msg->confirmation_flag = TRUE;
+        rqst_msg->_resends = resends;
+    }else
+    {
+        rqst_msg->confirmation_flag = FALSE;
+        rqst_msg->_resends = 0;
+    }
     rqst_msg->one_answ_flag = is_one_answ;
     rqst_msg->wait_answ_flag = answ_clb == NULL? FALSE : TRUE;
 
@@ -675,13 +706,12 @@ RF62X_msg_t *RF62X_create_rqst_msg(char *cmd_name, char *data, uint32_t data_siz
     rqst_msg->state = RF62X_MSG_WAIT_ENCODING;
 
     rqst_msg->result = NULL;
-
     return rqst_msg;
 }
 
 RF62X_msg_t *RF62X_create_answ_msg(RF62X_msg_t* rqst_msg, char *data, uint32_t data_size, char* data_type,
                                    uint8_t is_check_crc, uint8_t is_confirmation, uint8_t is_one_answ,
-                                   uint32_t timeout,
+                                   uint32_t timeout,  uint32_t resends,
                                    RF62X_answ_callback answ_clb,
                                    RF62X_timeout_callback timeout_clb,
                                    RF62X_free_callback free_clb)
@@ -693,7 +723,15 @@ RF62X_msg_t *RF62X_create_answ_msg(RF62X_msg_t* rqst_msg, char *data, uint32_t d
     strcpy(answ_msg->container_type, data_type);
 
     answ_msg->check_crc_flag = is_check_crc;
-    answ_msg->confirmation_flag = is_confirmation;
+    if (is_confirmation)
+    {
+        answ_msg->confirmation_flag = TRUE;
+        answ_msg->_resends = resends;
+    }else
+    {
+        answ_msg->confirmation_flag = FALSE;
+        answ_msg->_resends = 0;
+    }
     answ_msg->one_answ_flag = is_one_answ;
     answ_msg->wait_answ_flag = answ_clb == NULL? FALSE : TRUE;
 
@@ -717,6 +755,7 @@ RF62X_msg_t *RF62X_create_answ_msg(RF62X_msg_t* rqst_msg, char *data, uint32_t d
     answ_msg->state = RF62X_MSG_WAIT_ENCODING;
 
     answ_msg->result = NULL;
+    pthread_mutex_init(*rqst_msg->result_mutex, NULL);
 
     return answ_msg;
 }
@@ -751,7 +790,6 @@ void RF62X_cleanup_msg(RF62X_msg_t *msg)
         msg->_timeout = 0;
 
         msg->result = NULL;
-
         msg->state = RF62X_MSG_EMPTY;
     }
 }
