@@ -751,7 +751,6 @@ RF62X_msg_t *RF62X_create_answ_msg(RF62X_msg_t* rqst_msg, char *data, uint32_t d
     answ_msg->state = RF62X_MSG_WAIT_ENCODING;
 
     answ_msg->result = NULL;
-    pthread_mutex_init(*rqst_msg->result_mutex, NULL);
 
     return answ_msg;
 }
