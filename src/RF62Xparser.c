@@ -395,7 +395,7 @@ RF62X_msg_t* RF62X_parser_get_free_input_msg_buffer(RF62X_parser_t *parser, int*
         }
 
         if (msg->state & RF62X_MSG_DECODED &&
-                (((msg->state & RF62X_MSG_READ) == TRUE)
+                (((msg->state & RF62X_MSG_READ) != FALSE)
                  || ((msg->state & RF62X_MSG_WAIT_READING) == FALSE)))
         {
             RF62X_cleanup_msg(msg);
