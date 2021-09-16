@@ -1895,6 +1895,8 @@ uint8_t RF62X_parser_cleanup(RF62X_parser_t *parser)
             {
                 if (parser->input_msg_buffer[i].msg != NULL)
                 {
+                    pthread_mutex_lock(parser->input_msg_buffer[i].msg->result_mutex);
+                    pthread_mutex_unlock(parser->input_msg_buffer[i].msg->result_mutex);
                     pthread_mutex_destroy(parser->input_msg_buffer[i].msg->result_mutex);
                     free(parser->input_msg_buffer[i].msg->result_mutex);
                     RF62X_cleanup_msg(parser->input_msg_buffer[i].msg);
