@@ -1156,7 +1156,12 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                             mpack_write_cstr(&writer, msg->container_type);
                         }
 
-                        mpack_write_cstr(&writer, "chunk"); mpack_start_map(&writer, msg->check_crc_flag?5:4);
+                        int chunk_map_count = 3;
+                        if (msg->check_crc_flag)
+                            chunk_map_count++;
+                        if (playload_size != 0)
+                            chunk_map_count++;
+                        mpack_write_cstr(&writer, "chunk"); mpack_start_map(&writer, chunk_map_count);
                         {
                             // Полный размер
                             mpack_write_cstr(&writer, "chain_size");
@@ -1178,14 +1183,12 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                             mpack_write_bool(&writer, TRUE);
 
                             // Бинарные данные
-                            mpack_write_cstr(&writer, "data");
-                            if (playload_size < parser->max_packet_size)
+                            if (playload_size != 0)
                             {
+                                mpack_write_cstr(&writer, "data");
                                 mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
                                 with_data = TRUE;
-                            }
-                            else
-                                mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], 0);
+                            }                            
                         }
                         mpack_finish_map(&writer);
                     }
@@ -1202,7 +1205,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                 // If whole size of packet <= maximum packet size (according to initialization)
                 // this msg sending once with the LAST flag set to TRUE
-                if (with_data == TRUE && bytes <= (uint16_t)(parser->max_packet_size))
+                if (bytes <= (uint16_t)(parser->max_packet_size))
                 {
                     *packet_size = (uint16_t)bytes;
                 }
@@ -1270,7 +1273,12 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                                 mpack_write_cstr(&writer, msg->container_type);
                             }
 
-                            mpack_write_cstr(&writer, "chunk"); mpack_start_map(&writer, msg->check_crc_flag?5:4);
+                            int chunk_map_count = 3;
+                            if (msg->check_crc_flag)
+                                chunk_map_count++;
+                            if (playload_size != 0)
+                                chunk_map_count++;
+                            mpack_write_cstr(&writer, "chunk"); mpack_start_map(&writer, chunk_map_count);
                             {
                                 // Полный размер
                                 mpack_write_cstr(&writer, "chain_size");
@@ -1292,9 +1300,10 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                                 mpack_write_bool(&writer, FALSE);
 
                                 // Бинарные данные
-                                mpack_write_cstr(&writer, "data");
-                                mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
-
+                                if (playload_size != 0){
+                                    mpack_write_cstr(&writer, "data");
+                                    mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
+                                }
                             }
                             mpack_finish_map(&writer);
                         }
@@ -1449,7 +1458,10 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                             mpack_write_cstr(&writer, msg->container_type);
                         }
 
-                        mpack_write_cstr(&writer, "chunk"); mpack_start_map(&writer, 3);
+                        int chunk_map_count = 2;
+                        if (playload_size != 0)
+                            chunk_map_count++;
+                        mpack_write_cstr(&writer, "chunk"); mpack_start_map(&writer, chunk_map_count);
                         {
                             // Смещение фрагмента данных в цепочке
                             mpack_write_cstr(&writer, "offset");
@@ -1460,14 +1472,12 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                             mpack_write_bool(&writer, TRUE);
 
                             // Бинарные данные
-                            mpack_write_cstr(&writer, "data");
-                            if (playload_size < parser->max_packet_size)
+                            if (playload_size != 0)
                             {
+                                mpack_write_cstr(&writer, "data");
                                 mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
                                 with_data = TRUE;
-                            }
-                            else
-                                mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], 0);
+                            }                            
                         }
                         mpack_finish_map(&writer);
                     }
@@ -1484,7 +1494,7 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
 
                 // If whole size of packet <= maximum packet size (according to initialization)
                 // this msg sending once with the LAST flag set to TRUE
-                if (with_data == TRUE && bytes <= (uint16_t)(parser->max_packet_size))
+                if (bytes <= (uint16_t)(parser->max_packet_size))
                 {
                    *packet_size = (uint16_t)bytes;
                 }
@@ -1554,7 +1564,10 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                                 mpack_write_cstr(&writer, msg->container_type);
                             }
 
-                            mpack_write_cstr(&writer, "chunk"); mpack_start_map(&writer, 3);
+                            int chunk_map_count = 2;
+                            if (playload_size != 0)
+                                chunk_map_count++;
+                            mpack_write_cstr(&writer, "chunk"); mpack_start_map(&writer, chunk_map_count);
                             {
                                 // Смещение фрагмента данных в цепочке
                                 mpack_write_cstr(&writer, "offset");
@@ -1565,9 +1578,10 @@ int32_t RF62X_parser_encode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                                 mpack_write_bool(&writer, FALSE);
 
                                 // Бинарные данные
-                                mpack_write_cstr(&writer, "data");
-                                mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
-
+                                if (playload_size != 0) {
+                                    mpack_write_cstr(&writer, "data");
+                                    mpack_write_bin(&writer, (char*)&msg->data[parser->output_msg_buffer[msg_index].data_pos], playload_size);
+                                }
                             }
                             mpack_finish_map(&writer);
                         }
