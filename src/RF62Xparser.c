@@ -9,7 +9,8 @@
 #include <time.h>
 
 #ifdef _WIN32
-#include <winsock.h>
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
 #else
 #include <sys/socket.h>
 #include <sys/time.h>
