@@ -430,6 +430,10 @@ RF62X_msg_t* RF62X_parser_get_free_input_msg_buffer(RF62X_parser_t *parser, int*
         if (msg->state & RF62X_MSG_WAIT_DECODING)
         {
             RF62X_cleanup_msg(msg);
+            if (parser->input_msg_buffer[parser->input_msg_index].mask_size > 0){
+                free(parser->input_msg_buffer[parser->input_msg_index].mask);
+                parser->input_msg_buffer[parser->input_msg_index].mask_size = 0;
+            }
             *index = parser->input_msg_index;
             return msg;
         }
