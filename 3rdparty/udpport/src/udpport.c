@@ -112,6 +112,12 @@ uint8_t udp_port_open(udp_port_t *udpport, uint16_t port_number, uint16_t timeou
             return FALSE;
 #endif
         }
+
+        int sendbuff = 1048576;
+        int recvbuff = 1048576;
+        ret_val = setsockopt(udpport->sock, SOL_SOCKET, SO_SNDBUF, (char*)&sendbuff, sizeof(sendbuff));
+        ret_val = setsockopt(udpport->sock, SOL_SOCKET, SO_RCVBUF, (char*)&recvbuff, sizeof(recvbuff));
+
     }
 
 #if defined(linux) || defined(__linux) || defined(__linux__)
