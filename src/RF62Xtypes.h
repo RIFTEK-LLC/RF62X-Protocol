@@ -76,9 +76,10 @@ typedef struct {
  */
 typedef struct {
     RF62X_msg_t* msg;         ///< Pointer to buffer for output data
-    uint8_t* mask;             ///< Pointer to mask of input data (A mask is required to account for the receipt of data)
-    uint32_t received_size;    ///< Current data size of input data
-    uint32_t data_pos;         ///< Current position of the data to send in the packet
+    uint8_t* mask;            ///< Pointer to mask of input data (A mask is required to account for the receipt of data)
+    uint32_t mask_size;       ///< Pointer to mask of input data (A mask is required to account for the receipt of data)
+    uint32_t received_size;   ///< Current data size of input data
+    uint32_t data_pos;        ///< Current position of the data to send in the packet
 } RF62X_parser_input_msg_t;
 
 /**

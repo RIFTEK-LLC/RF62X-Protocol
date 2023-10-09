@@ -480,7 +480,6 @@ uint8_t RF62X_channel_send_msg(RF62X_channel_t *channel, RF62X_msg_t *msg)
         {
             pthread_mutex_lock(&channel->output_udpport_mutex);
             int ret = udp_port_send_data(&channel->RF62X_sock, output_packet_data, packet_size);
-//            packet_size = 0;
             pthread_mutex_unlock(&channel->output_udpport_mutex);
             if (ret <= 0)
             {

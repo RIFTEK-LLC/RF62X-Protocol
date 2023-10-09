@@ -604,6 +604,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     parser->input_msg_buffer[input_msg_index].mask =
                             calloc(chain_size, sizeof (uint8_t));
                     memset(parser->input_msg_buffer[input_msg_index].mask, 0, chain_size);
+                    parser->input_msg_buffer[input_msg_index].mask_size = chain_size;
                 }
 
                 if (input_msg_index >= 0)
@@ -646,15 +647,19 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
             }
 
             // Copy data if it is not empty DATA packet.
-            if (input_msg_index >= 0)
-            if (data_size > 0 && input_msg->data_size > 0 && parser->input_msg_buffer[input_msg_index].mask[offset] != 1)
-            {
-                memcpy(&input_msg->data[offset], data, data_size);
-                // Update data position if it is next data in data buffer (not previous data in data buffers)
-                parser->input_msg_buffer[input_msg_index].data_pos = offset + data_size;
-                // Update data counter. If this potion of data wasn't recieved before we update data counter.
-                parser->input_msg_buffer[input_msg_index].received_size += data_size;
-                parser->input_msg_buffer[input_msg_index].mask[offset] = 1;
+            if (input_msg_index >= 0){
+                if (data_size > 0 && input_msg->data_size > 0 && parser->input_msg_buffer[input_msg_index].mask[offset] != 1)
+                {
+                    memcpy(&input_msg->data[offset], data, data_size);
+                    // Update data position if it is next data in data buffer (not previous data in data buffers)
+                    parser->input_msg_buffer[input_msg_index].data_pos = offset + data_size;
+                    // Update data counter. If this potion of data wasn't recieved before we update data counter.
+                    parser->input_msg_buffer[input_msg_index].received_size += data_size;
+                    parser->input_msg_buffer[input_msg_index].mask[offset] = 1;
+                }else
+                {
+                    printf("The packet was received not from the beginning of the data...\n");
+                }
             }
 
             // TODO: Check lost data. Check if there is a gap between the last
@@ -708,7 +713,10 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     }
 
 //                    memset(parser->input_msg_buffer[input_msg_index].mask, 0, input_msg->data_size);
-                    free(parser->input_msg_buffer[input_msg_index].mask);
+                    if (parser->input_msg_buffer[input_msg_index].mask_size > 0){
+                        free(parser->input_msg_buffer[input_msg_index].mask);
+                        parser->input_msg_buffer[input_msg_index].mask_size = 0;
+                    }
                     pthread_mutex_unlock(&parser->input_msg_buff_mutex);
 
                     free(type); type = NULL;
@@ -732,6 +740,10 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     free(container_type); container_type = NULL;
                     free(data); data = NULL;
                     mpack_tree_destroy(&tree);
+                    if (parser->input_msg_buffer[input_msg_index].mask_size > 0){
+                        free(parser->input_msg_buffer[input_msg_index].mask);
+                        parser->input_msg_buffer[input_msg_index].mask_size = 0;
+                    }
                     pthread_mutex_unlock(&parser->input_msg_buff_mutex);
                     return RF62X_PARSER_RETURN_STATUS_LOST_DATA_DETECTED;
                 }
@@ -871,6 +883,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                             parser->input_msg_buffer[input_msg_index].mask =
                                     calloc(chain_size, sizeof (uint8_t));
                             memset(parser->input_msg_buffer[input_msg_index].mask, 0, chain_size);
+                            parser->input_msg_buffer[input_msg_index].mask_size = chain_size;
                         }
 
                         if (input_msg_index >= 0)
@@ -912,7 +925,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     }
 
                     // Copy data if it is not empty DATA packet.
-                    if (input_msg_index >= 0)
+                    if (input_msg_index >= 0){
                     if (data_size > 0 && input_msg->data_size > 0 && parser->input_msg_buffer[input_msg_index].mask[offset] != 1)
                     {
                         memcpy(&input_msg->data[offset], data, data_size);
@@ -921,6 +934,10 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                         // Update data counter. If this potion of data wasn't recieved before we update data counter.
                         parser->input_msg_buffer[input_msg_index].received_size += data_size;
                         parser->input_msg_buffer[input_msg_index].mask[offset] = 1;
+                    }else
+                    {
+                        printf("The packet was received not from the beginning of the data...\n");
+                    }
                     }
 
                     // TODO: Check lost data. Check if there is a gap between the last
@@ -964,7 +981,10 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                             mpack_tree_destroy(&tree);
                             input_msg->state ^= RF62X_MSG_WAIT_DECODING;
                             input_msg->state |= RF62X_MSG_DECODED;
-                            free(parser->input_msg_buffer[input_msg_index].mask);
+                            if (parser->input_msg_buffer[input_msg_index].mask_size > 0){
+                                free(parser->input_msg_buffer[input_msg_index].mask);
+                                parser->input_msg_buffer[input_msg_index].mask_size = 0;
+                            }
                             if (output_msg->confirmation_flag && msg_uid != 0)
                             {
                                 input_msg->state |= RF62X_MSG_WAIT_CONFIRMATION;
@@ -986,6 +1006,11 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                             free(container_type); container_type = NULL;
                             free(data); data = NULL;
                             mpack_tree_destroy(&tree);
+                            if (parser->input_msg_buffer[input_msg_index].mask_size > 0){
+                                free(parser->input_msg_buffer[input_msg_index].mask);
+                                parser->input_msg_buffer[input_msg_index].mask_size = 0;
+                            }
+                            RF62X_cleanup_msg(parser->input_msg_buffer[input_msg_index].msg);
                             pthread_mutex_unlock(&parser->input_msg_buff_mutex);
                             pthread_mutex_unlock(&parser->output_msg_buff_mutex);
                             return RF62X_PARSER_RETURN_STATUS_LOST_DATA_DETECTED;
