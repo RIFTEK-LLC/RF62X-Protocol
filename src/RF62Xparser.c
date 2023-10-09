@@ -658,7 +658,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                     parser->input_msg_buffer[input_msg_index].mask[offset] = 1;
                 }else
                 {
-                    printf("The packet was received not from the beginning of the data...\n");
+//                    printf("The packet was received not from the beginning of the data...\n");
                 }
             }
 
@@ -936,7 +936,7 @@ int32_t RF62X_parser_decode_msg(RF62X_parser_t *parser, uint8_t *packet_data, ui
                         parser->input_msg_buffer[input_msg_index].mask[offset] = 1;
                     }else
                     {
-                        printf("The packet was received not from the beginning of the data...\n");
+//                        printf("The packet was received not from the beginning of the data...\n");
                     }
                     }
 
