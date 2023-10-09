@@ -104,29 +104,43 @@ int main(int argc, char* argv[])
             printf("Recieved %d bytes to %s during %lf ms\n", msg->data_size, msg->cmd_name, time_spent);
             start = clock();
 
-            // You can check the command name (logical port/path) for which the
-            // data was sent.
-            if (strcmp("WITHOUT_DATA_PORT", msg->cmd_name) == 0) {
-                //...
-            }else if (strcmp("SHORT_DATA_PORT", msg->cmd_name) == 0) {
-                //...
-            }else if (strcmp("LONG_DATA_PORT", msg->cmd_name) == 0) {
-                //...
-            }
-            // But in this example we will send the same response
-            // for all requests.
-
+            char* data;
+            uint32_t data_size = 0;
             // Create test data answer.
             char* test_answer = "HELLO, SENDER!";
 
+            // You can check the command name (logical port/path) for which the
+            // data was sent.
+            if (strcmp("WITHOUT_DATA_PORT", msg->cmd_name) == 0) {
+                data_size = strlen(test_answer) + 1;
+                data = calloc(data_size, sizeof (char));
+            }else if (strcmp("SHORT_DATA_PORT", msg->cmd_name) == 0) {
+                // Create short data msg for testing payload mode.
+                data_size = channel.max_packet_size / 2;
+                data = calloc(data_size, sizeof (char));
+            }else if (strcmp("LONG_DATA_PORT", msg->cmd_name) == 0) {
+                // Create long data msg for testing chain mode.
+                data_size = channel.max_data_size / 2;
+                data = calloc(data_size, sizeof (char));
+            }else
+            {
+                data_size = strlen(test_answer) + 1;
+                data = calloc(data_size, sizeof (char));
+            }
+
+            // But in this example we will send the same response
+            // for all requests but with different size of data.
+            memcpy(data, test_answer, strlen(test_answer) + 1);
+
             // Create answ msg
-            char* payload                      = test_answer;
-            uint32_t payload_size              = strlen(test_answer);
+            char* payload                      = data;
+            uint32_t payload_size              = data_size;
             char* data_type                    = "blob";
             uint8_t is_check_crc               = FALSE; // check crc disabled
             uint8_t is_confirmation            = FALSE; // confirmation disabled
             uint8_t is_one_answ                = TRUE;  // wait only one answer
-            uint32_t waiting_time              = 1000;  // ms
+            uint32_t waiting_time              = 100;  // ms
+            uint32_t resends                    = is_confirmation ? 3 : 0;
             // NULL in answ_clb means that any data in response will be ignored.
             RF62X_answ_callback answ_clb       = NULL;
             // After the timeout_clb has been triggered, which will indicate
@@ -138,8 +152,11 @@ int main(int argc, char* argv[])
             RF62X_msg_t* answ_msg = RF62X_create_answ_msg(
                                           msg, payload, payload_size, data_type,
                                           is_check_crc, is_confirmation, is_one_answ,
-                                          waiting_time,
+                                          waiting_time, resends,
                                           answ_clb, timeout_clb, free_clb);
+
+            // allocate long_data msg
+            free(data);
 
             // Send answ msg
             if (!RF62X_channel_send_msg(&channel, answ_msg))

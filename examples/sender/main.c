@@ -115,7 +115,8 @@ int main(int argc, char* argv[])
             uint8_t is_check_crc                = FALSE; // check crc disabled
             uint8_t is_confirmation             = FALSE; // confirmation disabled
             uint8_t is_one_answ                 = TRUE;  // wait only one answer
-            uint32_t waiting_time               = 1000;  // ms
+            uint32_t waiting_time               = 100;  // ms
+            uint32_t resends                    = is_confirmation ? 3 : 0;
             // callbacks for request
             RF62X_answ_callback answ_clb        = RF62X_data_callback;
             RF62X_timeout_callback timeout_clb  = RF62X_data_timeout_callback;
@@ -125,7 +126,7 @@ int main(int argc, char* argv[])
             RF62X_msg_t* msg = RF62X_create_rqst_msg(
                                     cmd_name, payload, payload_size, data_type,
                                     is_check_crc, is_confirmation, is_one_answ,
-                                    waiting_time,
+                                    waiting_time, resends,
                                     answ_clb, timeout_clb, free_clb);
             // Send test msg
             if (!RF62X_channel_send_msg(&channel, msg))
@@ -177,7 +178,8 @@ int main(int argc, char* argv[])
             uint8_t is_check_crc                = FALSE; // check crc disabled
             uint8_t is_confirmation             = FALSE; // confirmation disabled
             uint8_t is_one_answ                 = TRUE;  // wait only one answer
-            uint32_t waiting_time               = 1000;  // ms
+            uint32_t waiting_time               = 100;  // ms
+            uint32_t resends                    = is_confirmation ? 3 : 0;
             // callbacks for request
             RF62X_answ_callback answ_clb        = RF62X_data_callback;
             RF62X_timeout_callback timeout_clb  = RF62X_data_timeout_callback;
@@ -187,7 +189,7 @@ int main(int argc, char* argv[])
             RF62X_msg_t* msg = RF62X_create_rqst_msg(
                                     cmd_name, payload, payload_size, data_type,
                                     is_check_crc, is_confirmation, is_one_answ,
-                                    waiting_time,
+                                    waiting_time, resends,
                                     answ_clb, timeout_clb, free_clb);
             // allocate short_data msg
             free(short_data);
@@ -212,7 +214,7 @@ int main(int argc, char* argv[])
                 char* test_answer = calloc(result->received_data_size + 1, sizeof (char));
                 memcpy(test_answer, result->received_data, result->received_data_size);
 
-                if (strcmp("HELLO, SENDER!", test_answer) == 0)
+                if (strcmp(test_answer, "HELLO, SENDER!") == 0)
                     successful_results++;
 
                 free(test_answer);
@@ -242,7 +244,8 @@ int main(int argc, char* argv[])
             uint8_t is_check_crc                = FALSE; // check crc disabled
             uint8_t is_confirmation             = TRUE; // confirmation disabled
             uint8_t is_one_answ                 = TRUE;  // wait only one answer
-            uint32_t waiting_time               = 1000;  // ms
+            uint32_t waiting_time               = 100;  // ms
+            uint32_t resends                    = is_confirmation ? 3 : 0;
             // callbacks for request
             RF62X_answ_callback answ_clb        = RF62X_data_callback;
             RF62X_timeout_callback timeout_clb  = RF62X_data_timeout_callback;
@@ -252,7 +255,7 @@ int main(int argc, char* argv[])
             RF62X_msg_t* msg = RF62X_create_rqst_msg(
                                     cmd_name, payload, payload_size, data_type,
                                     is_check_crc, is_confirmation, is_one_answ,
-                                    waiting_time,
+                                    waiting_time, resends,
                                     answ_clb, timeout_clb, free_clb);
             // allocate long_data msg
             free(long_data);
