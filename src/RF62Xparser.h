@@ -11,8 +11,8 @@
 #define RF62X_PARSER_DEFAULT_MAXIMUM_DATA_SIZE 6220800	///< Default maximum data size
 #define RF62X_PARSER_DEFAULT_WAIT_CONFIRM_TIMEOUT 50    ///< Default confirmation timeout
 
-#define RF62X_PARSER_INPUT_BUFFER_QUEUE 3				///< Num logic ports
-#define RF62X_PARSER_OUTPUT_BUFFER_QUEUE 3
+#define RF62X_PARSER_INPUT_BUFFER_QUEUE 16				///< Num logic ports
+#define RF62X_PARSER_OUTPUT_BUFFER_QUEUE 16
 
 // Return statuses
 #define RF62X_PARSER_RETURN_STATUS_NO_DATA 0
